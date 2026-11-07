@@ -1,0 +1,14 @@
+{
+  "name": "tavolozza",
+  "description": "Tavolozza: choose which Claude Code plugins are on, per project, from inside the session.",
+  "owner": {
+    "name": "Psymboll"
+  },
+  "plugins": [
+    {
+      "name": "tavolozza",
+      "source": "./plugins/tavolozza",
+      "description": "Pick which plugins are on for this project, from inside the session (/tavo)."
+    }
+  ]
+}

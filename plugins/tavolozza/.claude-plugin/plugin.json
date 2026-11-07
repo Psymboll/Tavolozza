@@ -1,0 +1,23 @@
+{
+  "name": "tavolozza",
+  "version": "0.1.0",
+  "description": "Pick which plugins are on for this project, from inside the session: /tavo writes the choice to .claude/settings.local.json.",
+  "author": { "name": "Psymboll" },
+  "license": "MIT",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "startup": {
+      "type": "string",
+      "title": "When to show at session start",
+      "description": "always: open the pane every session. first-visit: only in folders without a profile. on-change: also when installed plugins changed since the profile was saved. never: only /tavo.",
+      "default": "on-change",
+      "options": ["always", "first-visit", "on-change", "never"]
+    },
+    "palette": {
+      "type": "boolean",
+      "title": "Palette view",
+      "description": "Draw the picker as a painter's palette. Off: a plain list (better with screen readers).",
+      "default": true
+    }
+  }
+}
