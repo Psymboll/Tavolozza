@@ -5,7 +5,7 @@
 import type { Band, PaneModel, PluginRow, View } from '../types'
 import { LOCAL_SETTINGS, LocalSettingsError, isAllowedTarget, localEnabledPlugins, parseLocal, previewText, renderLocal } from './lib/diff'
 import { DAY_MS, type FolderRecord, decideStartup, driftSummary, folderKey, installedHash } from './lib/drift'
-import { chooseView } from './lib/palette'
+import { chooseView, TEMPLATE } from './lib/palette'
 import { applyPreset, detectPreset, matchingPreset, presetFromSelection } from './lib/presets'
 import { type Cost, type InstalledPlugin, parseDetails, parsePluginList } from './lib/plugins'
 import { type Layers, buildRows, bug27247Warning, enabledPluginsOf, fmtTokens, totalTokens } from './lib/settings'
@@ -45,12 +45,11 @@ export type Io = {
 export const LIST_PAGE = 9
 
 /**
- * Body rows the pane asks for when it opens: the palette (10) plus presets,
- * sources, message and footer at a typical width. A request: the engine
- * gives what the layout can spare, and the pane falls back to the list when
- * that is not enough.
+ * Body rows the pane asks for when it opens: the palette plus its one key
+ * row. A request: the engine gives what the layout can spare, and the pane
+ * falls back to the list when that is not enough.
  */
-export const PANE_ROWS = 20
+export const PANE_ROWS = TEMPLATE.length + 1
 
 // ---------------------------------------------------------------- reading
 
@@ -335,12 +334,32 @@ export async function deletePreset(io: Io, name: string): Promise<void> {
   await io.setModel(cur => ({ ...cur, presets, message: `Preset ${name} deleted.` }))
 }
 
-export async function snooze(io: Io, kind: 'folder' | 'week'): Promise<void> {
+/** Show the preset picker in place of the action area. */
+export async function startLoadingPreset(io: Io): Promise<void> {
+  await io.setModel(cur => ({ ...cur, mode: 'load-preset', message: '' }))
+}
+
+/** Leave the preset picker or the name field without changing anything. */
+export async function cancelPreset(io: Io): Promise<void> {
+  await io.setModel(cur => ({ ...cur, mode: 'edit' }))
+}
+
+/**
+ * Keep Tavolozza quiet at startup here: for good ('folder') or for 7 days
+ * ('week'). Reached through `/tavo snooze [week]`; returns the line to show.
+ */
+export async function snooze(io: Io, kind: 'folder' | 'week'): Promise<string> {
   const cwd = await io.cwd()
   const now = await io.now()
   await setFolderRecord(io, cwd, kind === 'folder' ? { snoozeForever: true } : { snoozeUntil: now + 7 * DAY_MS })
   await io.closePane()
-  io.toast(kind === 'folder' ? 'Tavolozza stays quiet in this folder. /tavo still works.' : 'Tavolozza stays quiet here for 7 days.')
+  return kind === 'folder' ? 'Tavolozza stays quiet in this folder. /tavo still works.' : 'Tavolozza stays quiet here for 7 days.'
+}
+
+/** Undo a snooze for this folder (`/tavo unsnooze`). */
+export async function unsnooze(io: Io): Promise<string> {
+  await setFolderRecord(io, await io.cwd(), { snoozeForever: false, snoozeUntil: 0 })
+  return 'Tavolozza speaks up at startup in this folder again.'
 }
 
 // ---------------------------------------------------------------- startup

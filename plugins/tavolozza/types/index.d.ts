@@ -27,8 +27,11 @@ export type PluginRow = {
 
 export type View = 'palette' | 'list'
 
-/** edit: toggling. confirm: dry-run shown, waiting for Write. name-preset: typing a preset name. */
-export type Mode = 'edit' | 'confirm' | 'name-preset'
+/**
+ * edit: toggling. confirm: dry-run shown, waiting for Write. name-preset:
+ * typing a preset name. load-preset: picking a preset to apply.
+ */
+export type Mode = 'edit' | 'confirm' | 'name-preset' | 'load-preset'
 
 /** Everything the pane draws from. */
 export type PaneModel = {

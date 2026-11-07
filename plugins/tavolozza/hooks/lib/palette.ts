@@ -1,5 +1,5 @@
 // Pure: the terminal palette layout. The template is the handoff's: each
-// 12-character run of A–F is one plugin slot, the 15 T's are the total.
+// 18-character run of A–F is one plugin slot, one per line (a column), the 15 T's are the total.
 // The UI turns slot segments into Buttons and text segments into Text, so
 // this file only cuts lines into segments and formats slot labels.
 
@@ -7,13 +7,13 @@ import type { PluginRow } from '../../types'
 
 export const TEMPLATE: readonly string[] = [
   "              _.--~~~~~~~~~~~~--._",
-  "         .-~''                    ''~-.",
-  "      .-'   AAAAAAAAAAAA  BBBBBBBBBBBB  '-.",
-  "    .'    CCCCCCCCCCCC  DDDDDDDDDDDD       '.",
-  "   /    EEEEEEEEEEEE  FFFFFFFFFFFF   .--.    \\",
-  "  |                                 (    )    |",
-  "   \\     TTTTTTTTTTTTTTT             '--'    /",
-  "    '.                                    .-'",
+  "         .-~'' AAAAAAAAAAAAAAAAAA ''~-.",
+  "      .-'      BBBBBBBBBBBBBBBBBB       '-.",
+  "    .'         CCCCCCCCCCCCCCCCCC          '.",
+  "   /           DDDDDDDDDDDDDDDDDD    .--.    \\",
+  "  |            EEEEEEEEEEEEEEEEEE   (    )    |",
+  "   \\           FFFFFFFFFFFFFFFFFF    '--'    /",
+  "    '.         TTTTTTTTTTTTTTT            .-'",
   "      '-._         .-~~~-.          _.--'",
   "          '-.____.'       '.____.--'",
 ]
@@ -21,7 +21,7 @@ export const TEMPLATE: readonly string[] = [
 /** Widest template line: below this many columns the pane uses the list. */
 export const PALETTE_WIDTH = Math.max(...TEMPLATE.map(l => l.length))
 export const SLOTS_PER_PAGE = 6
-export const SLOT_WIDTH = 12
+export const SLOT_WIDTH = 18
 export const TOTAL_WIDTH = 15
 /** Above this many plugins the pane opens in list mode by default. */
 export const MANY_PLUGINS = 24
@@ -34,7 +34,7 @@ export type Segment =
 /** Cut one template line into text / slot / total segments. */
 export function segmentLine(line: string): Segment[] {
   const out: Segment[] = []
-  const re = /([A-F])\1{11}|T{15}/g
+  const re = new RegExp(`([A-F])\\1{${SLOT_WIDTH - 1}}|T{${TOTAL_WIDTH}}`, 'g')
   let last = 0
   for (let m = re.exec(line); m; m = re.exec(line)) {
     if (m.index > last) out.push({ kind: 'text', text: line.slice(last, m.index) })
@@ -55,7 +55,7 @@ export function fit(text: string, w: number): string {
   return text + ' '.repeat(w - chars.length)
 }
 
-/** `● name` when on, `○ name` when off, exactly 12 columns. */
+/** `● name` when on, `○ name` when off, exactly SLOT_WIDTH columns. */
 export function slotLabel(name: string, on: boolean): string {
   return fit(`${on ? '●' : '○'} ${name}`, SLOT_WIDTH)
 }

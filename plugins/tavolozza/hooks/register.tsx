@@ -64,7 +64,18 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
   }
 
   // command.run for /tavo: reload from disk and open with focus.
+  // `/tavo snooze` (this folder, for good), `/tavo snooze week`, `/tavo unsnooze`:
+  // the startup quieting, kept off the pane's buttons.
   if (e.command === 'tavo') {
+    const args = String(e.args ?? '').trim().toLowerCase().split(/\s+/).filter(Boolean)
+    if (args[0] === 'snooze') {
+      if (args.length > 2 || (args[1] !== undefined && args[1] !== 'week' && args[1] !== 'folder')) {
+        return { text: 'Usage: /tavo snooze [week] · /tavo unsnooze' }
+      }
+      return { text: await act.snooze(io, args[1] === 'week' ? 'week' : 'folder') }
+    }
+    if (args[0] === 'unsnooze') return { text: await act.unsnooze(io) }
+    if (args.length > 0) return { text: 'Usage: /tavo · /tavo snooze [week] · /tavo unsnooze' }
     const presentation = e.presentation as { columns: number } | undefined
     const placed = await act.openPane(io, true, presentation?.columns)
     return { text: placed ? 'Tavolozza opened.' : 'Tavolozza is waiting for room to open.' }
@@ -74,6 +85,7 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
   await $.command.register({
     name: 'tavo',
     description: 'Choose which plugins are on for this project (Tavolozza)',
+    argumentHint: '[snooze [week] | unsnooze]',
     immediate: true,
   })
   const result = await next(e)

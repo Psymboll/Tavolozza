@@ -80,18 +80,27 @@ test('toggle a plugin, dry-run, write only the diff, reload', async ($, on) => {
   const opened = await $.command.run(TAVO)
   expect(opened.text).toBe('Tavolozza opened.')
   // /tavo opens a dialog-style pane (arrows walk the buttons) asking for room for the palette.
-  expect(fake.opens[0]).toMatchObject({ focus: true, closeOnEscape: true, rows: 20 })
+  expect(fake.opens[0]).toMatchObject({ focus: true, closeOnEscape: true, rows: 11 })
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
-    expect(await ui.find({ type: 'Text', text: /caveman: user/ })).toBeDefined()
+    expect(await ui.find({ key: 'slot-caveman@dir' })).toBeDefined()
     await ui.unmount()
   }
 
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  // No preset row, no per-plugin source/token line; the footer holds exactly four buttons.
+  expect(await ui.find({ type: 'Text', text: /presets:/ })).toBe(undefined)
+  expect(await ui.find({ type: 'Text', text: /caveman: user/ })).toBe(undefined)
+  for (const key of ['save', 'add-preset', 'load-preset', 'close']) expect(await ui.find({ key })).toBeDefined()
+  for (const key of ['reread', 'quiet-folder', 'quiet-week']) expect(await ui.find({ key })).toBe(undefined)
+  // The cumulative total follows the selection.
+  expect(await ui.find({ type: 'Text', text: /139 tok · 2\/2/ })).toBeDefined()
+
   // Palette view: slot buttons are keyed slot-<id>.
   await ui.press({ key: 'slot-caveman@dir' })
-  expect(await ui.find({ type: 'Text', text: /caveman: user\*/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '○' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /0 tok · 1\/2/ })).toBeDefined()
 
   await ui.press({ key: 'save' })
   expect(await ui.find({ type: 'Text', text: /Dry run/ })).toBeDefined()
@@ -102,8 +111,9 @@ test('toggle a plugin, dry-run, write only the diff, reload', async ($, on) => {
   expect(fake.writes[0]?.path).toBe('/proj/.claude/settings.local.json')
   expect(JSON.parse(fake.writes[0]?.text ?? '{}')).toEqual({ enabledPlugins: { 'caveman@dir': false } })
   expect(fake.commands).toContain('reload-plugins')
-  // Rows are re-read after the save: caveman's state now comes from local.
-  expect(await ui.find({ type: 'Text', text: /caveman: local/ })).toBeDefined()
+  // Rows are re-read after the save: caveman's state now comes from local (shown in the list).
+  await ui.press({ key: 'view' })
+  expect(await ui.find({ type: 'Text', text: /local/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -138,6 +148,7 @@ test('list view, presets and the #27247 warning', async ($, on) => {
   await ui.press({ key: 'view' })
   expect(await ui.find({ type: 'Text', text: /always-on tokens/ })).toBeDefined()
 
+  await ui.press({ key: 'load-preset' })
   await ui.press({ key: 'preset-lean' })
   expect(await ui.find({ type: 'Text', text: /Preset lean applied/ })).toBeDefined()
 
@@ -145,7 +156,11 @@ test('list view, presets and the #27247 warning', async ($, on) => {
   await ui.press({ key: 'add-preset' })
   await ui.input({ key: 'preset-name', text: 'No Browser' })
   expect(await ui.find({ type: 'Text', text: /Preset no-browser saved/ })).toBeDefined()
+  expect(await ui.find({ key: 'preset-no-browser' })).toBe(undefined)
+  await ui.press({ key: 'load-preset' })
   expect(await ui.find({ key: 'preset-no-browser' })).toBeDefined()
+  await ui.press({ key: 'cancel-preset' })
+  expect(await ui.find({ key: 'preset-no-browser' })).toBe(undefined)
   await ui.unmount()
 })
 
@@ -221,5 +236,29 @@ test('a snoozed folder stays quiet at startup', async ($, on) => {
   await ui.advance(50)
   expect(fake.opens.length).toBe(0)
   expect(await ui.find({ type: 'Text', text: /\/tavo/ })).toBe(undefined)
+  await ui.unmount()
+})
+
+test('snoozing is a command, not a button', async ($, on) => {
+  engine(on, USER)
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  expect((await $.command.run({ command: 'tavo', args: 'snooze week' } as never)).text).toMatch(/7 days/)
+  expect((await $.command.run({ command: 'tavo', args: 'snooze' } as never)).text).toMatch(/quiet in this folder/)
+  expect((await $.command.run({ command: 'tavo', args: 'unsnooze' } as never)).text).toMatch(/again/)
+  expect((await $.command.run({ command: 'tavo', args: 'bogus' } as never)).text).toMatch(/Usage/)
+})
+
+test('the palette fits in 11 rows, and a message does not flip it to the list', async ($, on) => {
+  engine(on, USER)
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  await $.command.run(TAVO)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 11 } } })
+  expect(await ui.find({ key: 'slot-caveman@dir' })).toBeDefined()
+  // One key row holds every action.
+  for (const key of ['save', 'add-preset', 'load-preset', 'view', 'close']) expect(await ui.find({ key })).toBeDefined()
+  await ui.press({ key: 'save' })
+  await ui.press({ key: 'cancel' })
+  expect(await ui.find({ type: 'Text', text: /Not saved/ })).toBeDefined()
+  expect(await ui.find({ key: 'slot-caveman@dir' })).toBeDefined()
   await ui.unmount()
 })

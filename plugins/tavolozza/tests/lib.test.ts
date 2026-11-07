@@ -190,9 +190,11 @@ describe('palette layout', () => {
     expect(textRows(21, 10)).toBe(3)
     expect(paletteRows(6)).toBe(16)
   })
-  test('template has six slots and one total', () => {
+  test('template has six slots in a column and one total', () => {
     const segs = TEMPLATE.flatMap(segmentLine)
     expect(segs.filter(s => s.kind === 'slot').map(s => (s as { index: number }).index)).toEqual([0, 1, 2, 3, 4, 5])
+    // one slot per line
+    expect(TEMPLATE.filter(l => /([A-F])\1{17}/.test(l)).length).toBe(6)
     expect(segs.filter(s => s.kind === 'total').length).toBe(1)
     expect(PALETTE_WIDTH).toBe(47)
   })
@@ -205,8 +207,9 @@ describe('palette layout', () => {
     expect(pageSlots(rows, 1).filter(r => r !== null).length).toBe(1)
   })
   test('slot labels', () => {
-    expect(slotLabel('caveman', true)).toBe('● caveman   ')
-    expect(slotLabel('averyverylongname', false)).toBe('○ averyvery…')
+    expect(slotLabel('caveman', true)).toBe('● caveman         ')
+    expect(slotLabel('playwright', true)).toBe('● playwright      ')
+    expect(slotLabel('averyverylongpluginname', false)).toBe('○ averyverylongpl…')
     expect(fit('abc', 2)).toBe('a…')
   })
   test('view choice', () => {
