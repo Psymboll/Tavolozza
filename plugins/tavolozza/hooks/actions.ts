@@ -381,7 +381,9 @@ export async function startup(io: Io, cwd: string): Promise<void> {
   const hash = installedHash(rows)
   const outcome = decideStartup({
     mode: options.startup,
-    hasProfile: loaded.hasLocalProfile || record?.hash !== undefined,
+    // The local file is the profile: without `enabledPlugins` there (a missing,
+    // empty or `{}` file) the folder has none, whatever was saved here before.
+    hasProfile: loaded.hasLocalProfile,
     record,
     hash,
     now: await io.now(),

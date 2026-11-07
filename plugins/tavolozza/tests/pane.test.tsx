@@ -262,3 +262,24 @@ test('the palette fits in 11 rows, and a message does not flip it to the list', 
   expect(await ui.find({ key: 'slot-caveman@dir' })).toBeDefined()
   await ui.unmount()
 })
+
+test('an empty settings.local.json is no profile: startup opens the pane, even after an earlier save', async ($, on) => {
+  const fake = engine(on, USER, { 'folder:/proj': { hash: 'old', ids: ['caveman@dir'], savedAt: 1 } })
+  fake.files['/proj/.claude/settings.local.json'] = '{}'
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.advance(50)
+  expect(fake.opens.length).toBe(1)
+  await ui.unmount()
+})
+
+test('a save matching user settings still writes enabledPlugins, so the folder counts as set up', async ($, on) => {
+  const fake = engine(on, USER)
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  await $.command.run(TAVO)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'save' })
+  await ui.press({ key: 'write' })
+  expect(JSON.parse(fake.writes[0]?.text ?? '{}')).toEqual({ enabledPlugins: {} })
+  await ui.unmount()
+})

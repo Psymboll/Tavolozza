@@ -113,7 +113,8 @@ describe('local diff', () => {
   test('other keys of the local file are preserved; empty map removes the key', () => {
     const text = JSON.stringify({ permissions: { allow: ['Bash(ls)'] }, enabledPlugins: { x: true } })
     expect(JSON.parse(renderLocal(text, { 'a@m': false }))).toEqual({ permissions: { allow: ['Bash(ls)'] }, enabledPlugins: { 'a@m': false } })
-    expect(JSON.parse(renderLocal(text, {}))).toEqual({ permissions: { allow: ['Bash(ls)'] } })
+    // an empty map is still written: it marks the folder as having a profile
+    expect(JSON.parse(renderLocal(text, {}))).toEqual({ permissions: { allow: ['Bash(ls)'] }, enabledPlugins: {} })
     expect(renderLocal(null, { 'a@m': false })).toBe('{\n  "enabledPlugins": {\n    "a@m": false\n  }\n}\n')
   })
   test('malformed local file is refused, never overwritten', () => {
@@ -128,7 +129,7 @@ describe('local diff', () => {
     expect(isAllowedTarget('/home/u/.claude/settings.json')).toBe(false)
   })
   test('preview', () => {
-    expect(previewText({})).toMatch(/removed/)
+    expect(previewText({})).toMatch(/"enabledPlugins": \{\}/)
     expect(previewText({ 'a@m': false })).toMatch(/"a@m": false/)
   })
 })

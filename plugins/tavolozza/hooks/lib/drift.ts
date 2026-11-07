@@ -53,7 +53,7 @@ export type StartupOutcome =
 
 export function decideStartup(input: {
   mode: StartupMode
-  /** Local settings already hold `enabledPlugins`, or Tavolozza saved here before. */
+  /** Local settings hold `enabledPlugins` (Tavolozza always writes it on save). */
   hasProfile: boolean
   record: FolderRecord | undefined
   hash: string

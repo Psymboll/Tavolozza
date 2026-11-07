@@ -4,7 +4,7 @@ A Claude Code mod to pick which plugins are on, per project. Choose the right co
 
 Every installed plugin adds always-on tokens to every session, even where it is useless. Tavolozza (Italian for a painter's palette) adds a `/tavo` command that opens a pane listing every installed plugin with its effective state and the settings layer that decided it (user / project / local / policy), with the always-on token total of your selection. Toggle plugins, load a preset (`lean`, `full`, `java`, your own), check the dry run, and save: Tavolozza writes only the differences to `.claude/settings.local.json` and runs `/reload-plugins` for you. It never touches `.claude/settings.json` or your user settings.
 
-At session start it behaves like asdf with `.tool-versions`: it opens once in a folder without a profile, then shows a one-line summary above the prompt, and speaks up again only when installed plugins change.
+At session start it behaves like asdf with `.tool-versions`: it opens in a folder without a profile (no `enabledPlugins` in `.claude/settings.local.json`), then shows a one-line summary above the prompt, and speaks up again only when installed plugins change. Claude Code opens a pane on its own only in a terminal at least 144 columns wide (110 once you have used `/tavo`); in a narrower one Tavolozza shows a one-line reminder above the prompt instead.
 
 Requires Claude Code 2.1.287 or later, in the terminal or the desktop Code tab.
 
@@ -17,6 +17,8 @@ At the prompt of a terminal session:
 ```
 
 From a shell: `claude plugin install tavolozza --marketplace Psymboll/Tavolozza`.
+
+In the desktop app, where `/plugin` does not run: click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `Psymboll/Tavolozza`, then **Add plugin**.
 
 ## Use
 

@@ -57,18 +57,21 @@ export function parseLocal(text: string | null): Record<string, unknown> {
   return data as Record<string, unknown>
 }
 
-/** The whole new file text: the old object with only `enabledPlugins` replaced (or removed when empty). */
+/**
+ * The whole new file text: the old object with only `enabledPlugins` replaced.
+ * Kept even when empty: `"enabledPlugins": {}` is how a folder says "a profile
+ * was chosen here, and it matches user/project settings". A file without the
+ * key means no profile, and Tavolozza opens at startup.
+ */
 export function renderLocal(text: string | null, enabled: Record<string, boolean>): string {
-  const obj = { ...parseLocal(text) }
-  if (Object.keys(enabled).length === 0) delete obj.enabledPlugins
-  else obj.enabledPlugins = enabled
+  const obj = { ...parseLocal(text), enabledPlugins: enabled }
   return JSON.stringify(obj, null, 2) + '\n'
 }
 
 /** The dry-run line(s): just the part Tavolozza changes. */
 export function previewText(enabled: Record<string, boolean>): string {
   if (Object.keys(enabled).length === 0) {
-    return '"enabledPlugins": (removed: every plugin matches user/project settings)'
+    return '"enabledPlugins": {}  (every plugin matches user/project settings)'
   }
   return '"enabledPlugins": ' + JSON.stringify(enabled, null, 2)
 }
