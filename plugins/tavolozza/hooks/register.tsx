@@ -63,6 +63,27 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
     return renderPane($.ui.resolve(ev), await read($, model), io, ev.props.bodyColumns, ev.props.scroll.bodyRows)
   }
 
+  // ui.render for the band above the prompt: startup summary, drift notice, or
+  // the "no profile" line with a button that opens the pane.
+  if (e.component === 'AbovePrompt') {
+    const ev = e as unknown as Parameters<EngineInterface['ui']['resolve']>[0] & { props: { hasSurvey: boolean } }
+    const current = await read($, band)
+    if (current === null || ev.props.hasSurvey) return next(e)
+    const { Box, Text, Button } = $.ui.resolve(ev)
+    if (!current.open) return <Text dimColor>{current.text}</Text>
+    // The press is the person asking, so the pane is placed at any width.
+    const open = async () => {
+      await update($, band, () => null)
+      await act.openPane(io, true)
+    }
+    return (
+      <Box flexDirection="row">
+        <Text dimColor>{current.text}</Text>
+        <Button key="open-tavo" hotkey="1" plain onPress={open}>Choose plugins</Button>
+      </Box>
+    )
+  }
+
   // command.run for /tavo: reload from disk and open with focus.
   // `/tavo snooze` (this folder, for good), `/tavo snooze week`, `/tavo unsnooze`:
   // the startup quieting, kept off the pane's buttons.
@@ -97,18 +118,6 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
   return result
 }
 
-/** The band above the prompt: startup summary or drift notice. */
-const drawBand = async (
-  $: EngineInterface,
-  e: Parameters<EngineInterface['ui']['resolve']>[0] & { props: { hasSurvey: boolean } },
-  next: (e: never) => Promise<unknown>,
-) => {
-  const current = await read($, band)
-  if (current === null || e.props.hasSurvey) return next(e as never)
-  const { Text } = $.ui.resolve(e)
-  return <Text dimColor>{current.text}</Text>
-}
-
 /** First prompt of the session clears the band. */
 const clearBand = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Promise<unknown>) => {
   if ((await read($, band)) !== null) await update($, band, () => null)
@@ -124,6 +133,6 @@ export const register: Register = (on, opts) => {
   on('session.start', main as never)
   on('command.run', { command: 'tavo' }, main as never)
   on('ui.render', { component: 'Pane', requestId: 'tavolozza' }, main as never)
-  on('ui.render', { component: 'AbovePrompt' }, drawBand as never)
+  on('ui.render', { component: 'AbovePrompt' }, main as never)
   on('prompt.submit', clearBand as never)
 }

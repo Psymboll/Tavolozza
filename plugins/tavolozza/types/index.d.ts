@@ -56,8 +56,13 @@ export type PaneModel = {
   columns: number
 }
 
-/** The one-line band above the prompt; null hides it. */
-export type Band = { text: string } | null
+/**
+ * The one-line band above the prompt; null hides it. `open`: draw a
+ * "1: Choose plugins" button after the text, for when the startup pane could
+ * not be placed (Claude Code seats an unasked pane only in a wide terminal;
+ * a press is the person asking, so the pane then opens at any width).
+ */
+export type Band = { text: string; open?: boolean } | null
 
 declare module 'claude-code' {
   interface PluginState {

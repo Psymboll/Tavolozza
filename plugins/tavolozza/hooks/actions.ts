@@ -392,7 +392,7 @@ export async function startup(io: Io, cwd: string): Promise<void> {
   if (outcome === 'quiet') return
   if (outcome === 'pane') {
     const placed = await openPane(io, false)
-    if (!placed) await io.setBand(({ text: 'Tavolozza: no plugin profile for this folder yet · /tavo' }))
+    if (!placed) await io.setBand({ text: 'Tavolozza: no plugin profile for this folder yet · ', open: true })
     return
   }
   if (outcome === 'drift') {

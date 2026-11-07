@@ -27,13 +27,15 @@ const LIST = JSON.stringify([
 type Fake = { files: Record<string, string>; writes: { path: string; text: string }[]; commands: string[]; opens: { focus?: true }[] }
 
 /** Answers every `$` call the mod makes; returns what it observed. */
-function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, store: Record<string, unknown> = {}): Fake {
+function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, store: Record<string, unknown> = {}, opts: { narrow?: boolean } = {}): Fake {
   const fake: Fake = { files: {}, writes: [], commands: [], opens: [] }
   mock.store(on, store)
   mock.clock(on)
   on('command.register', () => ({ value: { command: 'tavo' } }))
   on('ui.open', (_, e) => {
     fake.opens.push(e)
+    // A narrow terminal holds back a pane nobody asked for; a focused open is asked.
+    if (opts.narrow && !e.focus) return { value: { isPlaced: false, reason: 'below 144 columns' } } as never
     return { value: { isPlaced: true } }
   })
   // The engine's own drawing, for sites the mod passes on (an empty band).
@@ -281,5 +283,18 @@ test('a save matching user settings still writes enabledPlugins, so the folder c
   await ui.press({ key: 'save' })
   await ui.press({ key: 'write' })
   expect(JSON.parse(fake.writes[0]?.text ?? '{}')).toEqual({ enabledPlugins: {} })
+  await ui.unmount()
+})
+
+test('when the startup pane cannot be placed, the band offers a button that opens it', async ($, on) => {
+  const fake = engine(on, USER, {}, { narrow: true })
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  await ui.advance(50)
+  expect((await ui.find({ type: 'Text', text: /no plugin profile/ }))).toBeDefined()
+  await ui.press({ key: 'open-tavo' })
+  await ui.advance(10)
+  expect(fake.opens.at(-1)?.focus).toBe(true)
+  expect(await ui.find({ key: 'open-tavo' })).toBe(undefined)
   await ui.unmount()
 })
