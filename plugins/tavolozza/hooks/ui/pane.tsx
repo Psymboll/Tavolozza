@@ -44,6 +44,20 @@ const KEYS = [
 const SEP = ' · '
 
 /**
+ * The last drawing's layout, for the ui.focus hook that turns the page when
+ * the arrows leave the board. Module state: a reload starts it over, which
+ * only means the first arrow after a reload doesn't turn the page.
+ */
+export const paneLayout = {
+  surface: 'terminal',
+  page: 0,
+  pages: 1,
+  per: SLOTS_PER_PAGE,
+  prefix: 'slot-',
+  order: [] as string[],
+}
+
+/**
  * Draws the pane from the model. `els` is the surface's element table
  * ($.ui.resolve(e)), `columns` the pane body's width; every button calls an
  * action through `io`.
@@ -77,24 +91,41 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
   // One key row (the preset picker or name field takes its place while open)
   // and a setup warning if there is one. Messages share the key row and are
   // not counted: a "Not saved." must never flip the palette to the list.
-  // `s: Save · a: Save as preset · …`, plus `‹ 1/2 › · ` when there is a second page.
-  const pagerWidth = rows.length > SLOTS_PER_PAGE ? 3 + 7 + 3 + SEP.length : 0
-  const keyRowWidth = KEYS.reduce((w, [, , l]) => w + 3 + (l || 'Palette').length, 0) + (KEYS.length - 1) * SEP.length + pagerWidth
-  const chrome = textRows(keyRowWidth, columns) + (m.warning ? textRows(m.warning.length, columns) : 0)
+  // `s: Save · a: Save as preset · …`, plus `‹ 1/2 › · ` when the terminal
+  // palette has a second page (the list and the SVG palette page in a bar of their own).
+  const pagerWidth = 3 + 7 + 3 + SEP.length
+  const keyRowWidth = KEYS.reduce((w, [, , l]) => w + 3 + (l || 'Palette').length, 0) + (KEYS.length - 1) * SEP.length
+  const warningRows = m.warning ? textRows(m.warning.length, columns) : 0
+  const chromeFor = (withPager: boolean) => textRows(keyRowWidth + (withPager ? pagerWidth : 0), columns) + warningRows
 
   // ---- palette only when it fits whole, in width and in height; else the list
-  const paletteNeeds = paletteRows(chrome)
+  const paletteNeeds = paletteRows(chromeFor(rows.length > SLOTS_PER_PAGE))
   const fitsWidth = Svg !== undefined || columns >= PALETTE_WIDTH
   const fitsHeight = Svg !== undefined || paletteNeeds <= bodyRows
   const view = m.view === 'palette' && fitsWidth && fitsHeight ? 'palette' : 'list'
   const tooSmall = m.view === 'palette' && view === 'list'
+  const pagerInKeyRow = view === 'palette' && !Svg && rows.length > SLOTS_PER_PAGE
+  const chrome = chromeFor(pagerInKeyRow)
 
-  // List rows per page: as many as fit (each row may wrap when narrow), 1–9 for the hotkeys.
+  // List rows per page: as many as fit (each row may wrap when narrow), 1–9 for
+  // the hotkeys, keeping one row for the page bar when they don't all fit.
   const listRowRows = textRows(4 + 22 + 1 + 18, columns)
-  const listFit = Math.floor((bodyRows - chrome - 1 /* total line */) / listRowRows)
+  const listRoom = bodyRows - chrome - 1 /* total line */
+  const listNeedsBar = rows.length > Math.min(act.LIST_PAGE, Math.floor(listRoom / listRowRows))
+  const listFit = Math.floor((listRoom - (listNeedsBar ? 1 : 0)) / listRowRows)
   const per = view === 'palette' ? SLOTS_PER_PAGE : Math.max(1, Math.min(act.LIST_PAGE, listFit))
   const pages = pageCount(rows.length, per)
   const page = ((m.page % pages) + pages) % pages
+  const slotPrefix = view === 'palette' ? 'slot-' : 'row-'
+
+  /** `‹ page 1/2 ›`: the list's and the SVG palette's own pager (b / n). */
+  const pageBar = () => (
+    <Box flexDirection="row" columnGap={1}>
+      <Button key="prev" hotkey="b" plain onPress={() => act.setPage(io, -1)}>‹</Button>
+      <Text dimColor>{`page ${page + 1}/${pages}`}</Text>
+      <Button key="next" hotkey="n" plain onPress={() => act.setPage(io, 1)}>›</Button>
+    </Box>
+  )
 
   // ---- board
   let board
@@ -115,9 +146,19 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
       'Plugin palette: ' +
       slots.flatMap((r, i) => (r ? [`${i + 1} ${r.name} ${isOn(r) ? 'on' : 'off'}`] : [])).join(', ') +
       `. ${total}${pageLabel ? `, ${pageLabel}` : ''}`
+    // With a second page, Prev / Next stand either side of the board.
+    const picture = <Svg source={svg} alt={alt} width={480} height={320} />
     board = (
       <Box flexDirection="column" gap={1}>
-        <Svg source={svg} alt={alt} width={480} height={320} />
+        {pages > 1 ? (
+          <Box flexDirection="row" alignItems="center" columnGap={2}>
+            <Button key="prev" hotkey="b" onPress={() => act.setPage(io, -1)}>‹ Prev</Button>
+            {picture}
+            <Button key="next" hotkey="n" onPress={() => act.setPage(io, 1)}>Next ›</Button>
+          </Box>
+        ) : (
+          picture
+        )}
         <Box flexDirection="row" flexWrap="wrap" gap={1}>
           {slots.flatMap((r, i) =>
             r
@@ -205,6 +246,7 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
             </Button>
           )
         })}
+        {pages > 1 && pageBar()}
         <Text>
           <Text weight="bold">~{total}</Text>
           <Text dimColor> plugins on, always-on tokens</Text>
@@ -255,8 +297,8 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
   } else {
     const items = []
     for (const [hotkey, key, label] of KEYS) {
-      if (key === 'close' && pages > 1) {
-        // The pager sits before Close, only when there is a second page.
+      if (key === 'close' && pagerInKeyRow) {
+        // The terminal palette's pager sits before Close, only when there is a second page.
         items.push(<Button key="prev" hotkey="b" plain onPress={() => act.setPage(io, -1)}>‹</Button>)
         items.push(<Text dimColor> {page + 1}/{pages} </Text>)
         items.push(<Button key="next" hotkey="n" plain onPress={() => act.setPage(io, 1)}>›</Button>)
@@ -283,6 +325,29 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
       </Box>
     )
   }
+
+  // What the arrow-key paging (register.tsx, ui.focus) needs: the focus ring's
+  // order as drawn here, and the page it shows. The ring walks Buttons in
+  // document order: the board's toggles, its page bar, then the key row.
+  const pageRows = rows.slice(page * per, (page + 1) * per)
+  const slotKeys = pageRows.map(r => slotPrefix + r.id)
+  const keyRowKeys =
+    m.mode === 'edit'
+      ?KEYS.flatMap(([, key]) => (key === 'close' && pagerInKeyRow ? ['prev', 'next', key] : [key]))
+      : []
+  Object.assign(paneLayout, {
+    surface,
+    page,
+    pages,
+    per,
+    prefix: slotPrefix,
+    order:
+      m.mode === 'confirm' || rows.length === 0
+        ? []
+        : Svg && view === 'palette'
+          ? [...(pages > 1 ? ['prev', 'next'] : []), ...slotKeys, ...keyRowKeys]
+          : [...slotKeys, ...(view === 'list' && pages > 1 ? ['prev', 'next'] : []), ...keyRowKeys],
+  })
 
   // While confirming, the dry-run replaces the board so Write is never scrolled out of view.
   if (m.mode === 'confirm') {

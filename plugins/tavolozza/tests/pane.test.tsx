@@ -27,7 +27,7 @@ const LIST = JSON.stringify([
 type Fake = { files: Record<string, string>; writes: { path: string; text: string }[]; commands: string[]; opens: { focus?: true }[] }
 
 /** Answers every `$` call the mod makes; returns what it observed. */
-function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, store: Record<string, unknown> = {}, opts: { narrow?: boolean } = {}): Fake {
+function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, store: Record<string, unknown> = {}, opts: { narrow?: boolean; list?: string } = {}): Fake {
   const fake: Fake = { files: {}, writes: [], commands: [], opens: [] }
   mock.store(on, store)
   mock.clock(on)
@@ -49,7 +49,7 @@ function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, stor
   on('session.cwd', () => ({ value: '/proj' }))
   on('process.run', (_, e) => {
     const argv = e.argv.join(' ')
-    if (argv === 'claude plugin list --json') return { value: { exitCode: 0, stdout: LIST, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    if (argv === 'claude plugin list --json') return { value: { exitCode: 0, stdout: opts.list ?? LIST, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
     if (argv.startsWith('claude plugin details caveman')) {
       return { value: { exitCode: 0, stdout: 'Always-on:   ~139 tok\nMCP servers (0)', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
     }
@@ -312,5 +312,54 @@ test('when the startup pane cannot be placed, the band offers a button that open
   await ui.advance(10)
   expect(fake.opens.at(-1)?.focus).toBe(true)
   expect(await ui.find({ key: 'open-tavo' })).toBe(undefined)
+  await ui.unmount()
+})
+
+const EIGHT = JSON.stringify(
+  ['a1', 'b2', 'c3', 'd4', 'e5', 'f6', 'g7', 'h8'].map(n => ({ id: `${n}@dir`, version: '1', scope: 'user', enabled: true })),
+)
+
+test('more than six plugins: the palette pages on both surfaces', async ($, on) => {
+  engine(on, { enabledPlugins: {} }, {}, { list: EIGHT })
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  await $.command.run(TAVO)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ key: 'slot-a1@dir' })).toBeDefined()
+    expect(await ui.find({ key: 'slot-g7@dir' })).toBe(undefined)
+    expect(await ui.find({ key: 'next' })).toBeDefined()
+    await ui.press({ key: 'next' })
+    expect(await ui.find({ key: 'slot-g7@dir' })).toBeDefined()
+    expect(await ui.find({ key: 'slot-a1@dir' })).toBe(undefined)
+    await ui.press({ key: 'prev' })
+    expect(await ui.find({ key: 'slot-a1@dir' })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+test('more than six plugins: the list pages with a bar of its own', async ($, on) => {
+  engine(on, { enabledPlugins: {} }, {}, { list: EIGHT })
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  await $.command.run(TAVO)
+  {
+    // Switch to the list once; the view is shared by both surfaces.
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    await ui.press({ key: 'view' })
+    await ui.unmount()
+  }
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ key: 'row-a1@dir' })).toBeDefined()
+    expect(await ui.find({ key: 'row-h8@dir' })).toBeDefined() // 8 rows fit one list page
+    expect(await ui.find({ key: 'next' })).toBe(undefined)
+    await ui.unmount()
+  }
+  // A short pane: fewer rows per page, the bar under the list.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, scroll: { offset: 0, bodyRows: 7 } } })
+  expect(await ui.find({ key: 'row-a1@dir' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /page 1\/\d/ })).toBeDefined()
+  await ui.press({ key: 'next' })
+  expect(await ui.find({ key: 'row-a1@dir' })).toBe(undefined)
+  expect(await ui.find({ type: 'Text', text: /page 2\/\d/ })).toBeDefined()
   await ui.unmount()
 })

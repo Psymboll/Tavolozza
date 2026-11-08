@@ -7,11 +7,12 @@
 // is registered for every event that needs it.
 
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, UiFocusInput, UiFocusResult } from 'claude-code'
 
 import * as act from './actions'
+import { crossPage } from './lib/paging'
 import { EMPTY_MODEL, options, PANE_ID } from './state'
-import { renderPane } from './ui/pane'
+import { paneLayout, renderPane } from './ui/pane'
 
 type AnyEvent = Record<string, unknown>
 
@@ -119,6 +120,43 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
   return result
 }
 
+/** Where the pane's focus ring is now (module state: a reload forgets it). */
+let focused: string | undefined
+
+/**
+ * Arrows past the board turn the page: down from the last toggle goes to the
+ * first toggle of the next page, up from the first to the last of the one
+ * before. Terminal only: the desktop has Prev / Next by the board, and a click
+ * there also moves the ring, so a click on Save must not turn the page.
+ */
+const onFocus = async ($: EngineInterface, e: UiFocusInput, next: (e: UiFocusInput) => Promise<UiFocusResult>) => {
+  const L = paneLayout
+  if (e.origin.kind === 'person' && L.surface === 'terminal') {
+    const pageRows = (await read($, model)).rows.slice(L.page * L.per, (L.page + 1) * L.per)
+    const turn = crossPage({
+      order: L.order,
+      slots: pageRows.map(r => L.prefix + r.id),
+      from: focused,
+      to: e.element,
+      page: L.page,
+      pages: L.pages,
+    })
+    if (turn) {
+      const page = L.page + (turn === 'next' ? 1 : -1)
+      const target = (await read($, model)).rows.slice(page * L.per, (page + 1) * L.per)
+      const land = turn === 'next' ? target[0] : target[target.length - 1]
+      await update($, model, m => ({ ...m, page }))
+      focused = undefined
+      // Waits for the redraw that brings the new page's toggles.
+      if (land) void $.ui.focus({ requestId: PANE_ID, key: L.prefix + land.id }).catch(() => undefined)
+      return { deny: 'tavolozza: turned the page' }
+    }
+  }
+  const result = await next(e)
+  if (result.deny === undefined) focused = e.element
+  return result
+}
+
 /** First prompt of the session clears the band. */
 const clearBand = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Promise<unknown>) => {
   if ((await read($, band)) !== null) await update($, band, () => null)
@@ -136,4 +174,5 @@ export const register: Register = (on, opts) => {
   on('ui.render', { component: 'Pane', requestId: 'tavolozza' }, main as never)
   on('ui.render', { component: 'AbovePrompt' }, main as never)
   on('prompt.submit', clearBand as never)
+  on('ui.focus', { component: 'Pane', requestId: PANE_ID }, onFocus)
 }

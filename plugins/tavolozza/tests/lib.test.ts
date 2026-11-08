@@ -6,6 +6,7 @@ import type { PluginRow } from '../types'
 import { isAllowedTarget, localEnabledPlugins, parseLocal, previewText, renderLocal } from '../hooks/lib/diff'
 import { decideStartup, driftSummary, installedHash } from '../hooks/lib/drift'
 import { chooseView, fit, flowRows, PALETTE_WIDTH, paletteRows, textRows, pageSlots, renderPaletteText, segmentLine, slotLabel, TEMPLATE } from '../hooks/lib/palette'
+import { crossPage } from '../hooks/lib/paging'
 import { parseDetails, parsePluginList } from '../hooks/lib/plugins'
 import { applyPreset, detectPreset, matchingPreset } from '../hooks/lib/presets'
 import { buildRows, bug27247Warning, enabledPluginsOf, fmtTokens, resolve, totalTokens } from '../hooks/lib/settings'
@@ -221,5 +222,27 @@ describe('palette layout', () => {
     expect(chooseView({ paletteOption: true, columns: 120, count: 30, remembered: undefined })).toBe('list')
     expect(chooseView({ paletteOption: true, columns: 120, count: 30, remembered: 'palette' })).toBe('palette')
     expect(chooseView({ paletteOption: true, columns: 120, count: 5, remembered: 'list' })).toBe('list')
+  })
+})
+
+describe('arrow paging', () => {
+  const order = ['slot-a', 'slot-b', 'slot-c', 'save', 'view', 'prev', 'next', 'close']
+  const slots = ['slot-a', 'slot-b', 'slot-c']
+  const at = (from: string | undefined, to: string | undefined, page = 0, pages = 2) => crossPage({ order, slots, from, to, page, pages })
+
+  test('down from the last toggle turns to the next page', () => {
+    expect(at('slot-c', 'save')).toBe('next')
+    expect(at('slot-c', 'save', 1, 2)).toBe(null) // last page: on to the key row
+    expect(at('slot-b', 'slot-c')).toBe(null)
+  })
+  test('up from the first toggle turns back', () => {
+    expect(at('slot-a', 'close', 1)).toBe('prev') // the ring wraps to the end
+    expect(at('slot-a', undefined, 1)).toBe('prev') // an engine stop
+    expect(at('slot-a', 'close', 0)).toBe(null) // first page
+  })
+  test('jumps and unknown starts never turn', () => {
+    expect(at('slot-c', 'close')).toBe(null)
+    expect(at(undefined, 'save')).toBe(null)
+    expect(at('save', 'view')).toBe(null)
   })
 })
