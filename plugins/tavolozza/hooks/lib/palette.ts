@@ -130,3 +130,84 @@ export function textRows(len: number, columns: number): number {
 export function paletteRows(chromeRows: number): number {
   return TEMPLATE.length + chromeRows
 }
+
+// ---- The graphical palette (desktop, vscode, mobile: surfaces with `Svg`).
+// Same page of SLOTS_PER_PAGE slots as the terminal, same paging and keys;
+// only the drawing changes. The SVG is a picture (an `Svg` is a leaf and can't
+// be pressed), so the pane draws toggle Buttons beside it.
+
+export type SvgSlot = { name: string; on: boolean; paint: string } | null
+
+const esc = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+/** Blob centres, in slot order: two rows of three across the board. */
+const BLOB_AT: readonly [number, number][] = [
+  [135, 100], [225, 82], [315, 92],
+  [115, 182], [205, 172], [295, 178],
+]
+
+/** A paint blob: a wobbly circle, its wobble fixed per slot so it never jumps. */
+function blobPath(cx: number, cy: number, r: number, seed: number): string {
+  const n = 10
+  const pts: [number, number][] = []
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2
+    const rr = r * (1 + 0.1 * Math.sin(3 * a + seed * 1.7) + 0.05 * Math.cos(5 * a + seed))
+    pts.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)])
+  }
+  const mid = (i: number): [number, number] => {
+    const p = pts[i % n]!
+    const q = pts[(i + 1) % n]!
+    return [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]
+  }
+  const f = (v: number) => v.toFixed(1)
+  const [sx, sy] = mid(0)
+  let d = `M${f(sx)} ${f(sy)}`
+  for (let i = 1; i <= n; i++) {
+    const [px, py] = pts[i % n]!
+    const [mx, my] = mid(i)
+    d += ` Q${f(px)} ${f(py)} ${f(mx)} ${f(my)}`
+  }
+  return d + 'Z'
+}
+
+/**
+ * The palette as an SVG document: wood board wider at the top right, an
+ * off-centre thumb hole holding the total, a notch in the bottom edge; one
+ * blob per slot, filled when on, hollow when off.
+ */
+export function renderPaletteSvg(slots: SvgSlot[], total: string, pageLabel: string): string {
+  const wood = '#c89a6a'
+  const edge = '#9c6b3f'
+  const ink = '#3b2716'
+  // Outline plus the thumb hole as a second subpath, cut out by evenodd.
+  const board =
+    'M60 150 C40 70 150 22 262 28 C385 34 462 92 452 172 C446 242 382 292 292 288 ' +
+    'C262 286 252 264 230 264 C206 264 198 292 160 292 C92 292 70 222 60 150 Z ' +
+    'M404 196 a30 30 0 1 0 -60 0 a30 30 0 1 0 60 0 Z'
+  const parts: string[] = [
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 320" width="480" height="320" font-family="system-ui, -apple-system, Segoe UI, sans-serif">`,
+    `<path d="${board}" fill="${wood}" fill-rule="evenodd" stroke="${edge}" stroke-width="3"/>`,
+    `<path d="M120 60 C170 40 260 38 330 50" fill="none" stroke="#e0bb8e" stroke-width="6" stroke-linecap="round" opacity="0.6"/>`,
+  ]
+  slots.forEach((s, i) => {
+    const at = BLOB_AT[i]
+    if (!at || !s) return
+    const [cx, cy] = at
+    const d = blobPath(cx, cy, 24, i)
+    parts.push(
+      s.on
+        ? `<path d="${d}" fill="${s.paint}" stroke="${edge}" stroke-width="1.5"/>` +
+            `<ellipse cx="${cx - 8}" cy="${cy - 9}" rx="6" ry="3.5" fill="#fff" opacity="0.35"/>`
+        : `<path d="${d}" fill="none" stroke="${s.paint}" stroke-width="2.5" stroke-dasharray="5 4"/>`,
+      `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="${s.on ? '#fff' : s.paint}">${i + 1}</text>`,
+      `<text x="${cx}" y="${cy + 42}" text-anchor="middle" font-size="12" fill="${ink}" opacity="${s.on ? 1 : 0.55}">${esc(fit(s.name, 14).trimEnd())}</text>`,
+    )
+  })
+  // The total sits by the thumb hole, as on the terminal palette.
+  parts.push(`<text x="350" y="252" text-anchor="middle" font-size="15" font-weight="700" fill="${ink}">${esc(total)}</text>`)
+  if (pageLabel) parts.push(`<text x="350" y="270" text-anchor="middle" font-size="11" fill="${ink}" opacity="0.7">${esc(pageLabel)}</text>`)
+  parts.push('</svg>')
+  return parts.join('')
+}

@@ -6,7 +6,7 @@ import type { ElementTable } from 'claude-code'
 
 import type { PaneModel, PluginRow } from '../../types'
 import * as act from '../actions'
-import { fit, flowRows, PALETTE_WIDTH, pageCount, pageSlots, paletteRows, SEGMENTS, SLOT_WIDTH, SLOTS_PER_PAGE, textRows, TOTAL_WIDTH } from '../lib/palette'
+import { fit, PALETTE_WIDTH, pageCount, pageSlots, paletteRows, renderPaletteSvg, SEGMENTS, SLOT_WIDTH, SLOTS_PER_PAGE, textRows, TOTAL_WIDTH } from '../lib/palette'
 import { presetNames } from '../lib/presets'
 import { fmtTokens, totalTokens } from '../lib/settings'
 
@@ -48,9 +48,15 @@ const SEP = ' · '
  * ($.ui.resolve(e)), `columns` the pane body's width; every button calls an
  * action through `io`.
  */
-export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns: number, bodyRows: number) {
+export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns: number, bodyRows: number, surface: string) {
   const { Box, Text, Button, Code } = els
   const Input = (els as unknown as Record<string, unknown>).Input as ElementTable<'terminal'>['Input'] | undefined
+  // Desktop, VS Code and mobile draw `Svg`; the terminal doesn't. There the
+  // palette is a picture that scales, so the column/row fit checks don't apply.
+  const graphical = surface !== 'terminal'
+  const Svg = graphical ? ((els as unknown as Record<string, unknown>).Svg as ElementTable<'desktop'>['Svg'] | undefined) : undefined
+  /** The state dot, painted as the terminal list paints it: by row position when on, dim when off. */
+  const dot = (i: number, on: boolean) => (on ? <Text color={paint(i)}>●</Text> : <Text dimColor>○</Text>)
 
   if (m.status === 'loading' && m.rows.length === 0) return <Text dimColor>Reading installed plugins…</Text>
   if (m.status === 'error') {
@@ -78,8 +84,8 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
 
   // ---- palette only when it fits whole, in width and in height; else the list
   const paletteNeeds = paletteRows(chrome)
-  const fitsWidth = columns >= PALETTE_WIDTH
-  const fitsHeight = paletteNeeds <= bodyRows
+  const fitsWidth = Svg !== undefined || columns >= PALETTE_WIDTH
+  const fitsHeight = Svg !== undefined || paletteNeeds <= bodyRows
   const view = m.view === 'palette' && fitsWidth && fitsHeight ? 'palette' : 'list'
   const tooSmall = m.view === 'palette' && view === 'list'
 
@@ -94,6 +100,46 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
   let board
   if (rows.length === 0) {
     board = <Text dimColor>No other plugins installed. Install some with /plugin, then reopen /tavo.</Text>
+  } else if (view === 'palette' && Svg) {
+    // Graphical palette: the board as an SVG picture, then one toggle Button
+    // per blob (an Svg is a leaf and takes no presses). Same keys 1–6.
+    const slots = pageSlots(rows, page)
+    const isOn = (r: PluginRow) => m.selection[r.id] ?? r.enabled
+    const pageLabel = pages > 1 ? `page ${page + 1}/${pages}` : ''
+    const svg = renderPaletteSvg(
+      slots.map((r, i) => (r ? { name: r.name, on: isOn(r), paint: paint(i) } : null)),
+      total,
+      pageLabel,
+    )
+    const alt =
+      'Plugin palette: ' +
+      slots.flatMap((r, i) => (r ? [`${i + 1} ${r.name} ${isOn(r) ? 'on' : 'off'}`] : [])).join(', ') +
+      `. ${total}${pageLabel ? `, ${pageLabel}` : ''}`
+    board = (
+      <Box flexDirection="column" gap={1}>
+        <Svg source={svg} alt={alt} width={480} height={320} />
+        <Box flexDirection="row" flexWrap="wrap" gap={1}>
+          {slots.flatMap((r, i) =>
+            r
+              ? [
+                  <Box key={`chip-${r.id}`} flexDirection="row" columnGap={1}>
+                    {dot(i, isOn(r))}
+                    <Button
+                      key={`slot-${r.id}`}
+                      plain
+                      hotkey={String(i + 1)}
+                      {...(i === 0 ? { autoFocus: true as const } : {})}
+                      onPress={() => act.toggle(io, r.id)}
+                    >
+                      <Text dimColor={!isOn(r)}>{`${r.name} ${isOn(r) ? 'on' : 'off'}${changed(r) ? '*' : ''}`}</Text>
+                    </Button>
+                  </Box>,
+                ]
+              : [],
+          )}
+        </Box>
+      </Box>
+    )
   } else if (view === 'palette') {
     const slots = pageSlots(rows, page)
     board = (
@@ -131,6 +177,18 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
       <Box flexDirection="column">
         {rows.slice(page * per, (page + 1) * per).map((r, i) => {
           const isOn = m.selection[r.id] ?? r.enabled
+          if (graphical) {
+            // Desktop: the dot outside the native button, so its paint shows.
+            return (
+              <Box key={`line-${r.id}`} flexDirection="row" columnGap={1}>
+                {dot(i, isOn)}
+                <Button key={`row-${r.id}`} plain hotkey={String(i + 1)} {...(i === 0 ? { autoFocus: true as const } : {})} onPress={() => act.toggle(io, r.id)}>
+                  <Text dimColor={!isOn}>{isOn ? 'on  ' : 'off '}{fit(r.name, 22)}</Text>
+                  <Text dimColor>{fit(r.source + (r.locked ? ' (locked)' : '') + (changed(r) ? '*' : ''), 18)}</Text>
+                </Button>
+              </Box>
+            )
+          }
           return (
             <Button
               key={`row-${r.id}`}

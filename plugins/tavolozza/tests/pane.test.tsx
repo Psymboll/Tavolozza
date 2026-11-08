@@ -90,6 +90,22 @@ test('toggle a plugin, dry-run, write only the diff, reload', async ($, on) => {
     await ui.unmount()
   }
 
+  // Desktop draws the palette as an SVG (the terminal has no Svg); its toggles still work.
+  {
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop', props: { ...PANE.props, bodyColumns: 30, scroll: { offset: 0, bodyRows: 5 } } })
+    expect(await ui.find({ type: 'Svg' })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /caveman on/ })).toBeDefined()
+    await ui.press({ key: 'slot-caveman@dir' })
+    expect(await ui.find({ type: 'Text', text: /caveman off\*/ })).toBeDefined()
+    await ui.press({ key: 'slot-caveman@dir' })
+    await ui.unmount()
+  }
+  {
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+    expect(await ui.find({ type: 'Svg' })).toBe(undefined)
+    await ui.unmount()
+  }
+
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   // No preset row, no per-plugin source/token line; the footer holds exactly four buttons.
   expect(await ui.find({ type: 'Text', text: /presets:/ })).toBe(undefined)

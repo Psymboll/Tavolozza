@@ -60,7 +60,8 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
     const ev = e as unknown as Parameters<EngineInterface['ui']['resolve']>[0] & {
       props: { bodyColumns: number; scroll: { bodyRows: number } }
     }
-    return renderPane($.ui.resolve(ev), await read($, model), io, ev.props.bodyColumns, ev.props.scroll.bodyRows)
+    // `ev.surface` is where the pane is drawn: terminal gets ASCII, desktop/vscode/mobile an SVG.
+    return renderPane($.ui.resolve(ev), await read($, model), io, ev.props.bodyColumns, ev.props.scroll.bodyRows, ev.surface)
   }
 
   // ui.render for the band above the prompt: startup summary, drift notice, or
