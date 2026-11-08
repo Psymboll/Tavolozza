@@ -328,8 +328,8 @@ test('more than six plugins: the palette pages on both surfaces', async ($, on) 
     expect(await ui.find({ key: 'slot-a1@dir' })).toBeDefined()
     expect(await ui.find({ key: 'slot-g7@dir' })).toBe(undefined)
     expect(await ui.find({ key: 'next' })).toBeDefined()
-    // The terminal's page bar says what waits on later pages (the desktop says it inside the SVG).
-    if (surface === 'terminal') expect(await ui.find({ type: 'Text', text: /page 1\/2 · \+2 more/ })).toBeDefined()
+    // The terminal's page bar under the board (the desktop says it inside the SVG).
+    if (surface === 'terminal') expect(await ui.find({ type: 'Text', text: 'page 1/2' })).toBeDefined()
     await ui.press({ key: 'next' })
     expect(await ui.find({ key: 'slot-g7@dir' })).toBeDefined()
     expect(await ui.find({ key: 'slot-a1@dir' })).toBe(undefined)

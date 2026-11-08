@@ -114,11 +114,9 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
   const page = ((m.page % pages) + pages) % pages
   const slotPrefix = view === 'palette' ? 'slot-' : 'row-'
 
-  // How many plugins wait on later pages: the hint that there is more to see.
-  const later = Math.max(0, rows.length - (page + 1) * per)
-  const pageText = `page ${page + 1}/${pages}${later > 0 ? ` · +${later} more` : ''}`
+  const pageText = `page ${page + 1}/${pages}`
 
-  /** `‹ page 1/2 · +3 more ›`: the pager under the board (b / n). */
+  /** `‹ page 1/2 ›`: the pager under the board (b / n). */
   const pageBar = () => (
     <Box flexDirection="row" columnGap={1}>
       <Button key="prev" hotkey="b" plain onPress={() => act.setPage(io, -1)}>‹</Button>
