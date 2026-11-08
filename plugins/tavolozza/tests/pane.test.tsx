@@ -82,7 +82,7 @@ test('toggle a plugin, dry-run, write only the diff, reload', async ($, on) => {
   const opened = await $.command.run(TAVO)
   expect(opened.text).toBe('Tavolozza opened.')
   // /tavo opens a dialog-style pane (arrows walk the buttons) asking for room for the palette.
-  expect(fake.opens[0]).toMatchObject({ focus: true, closeOnEscape: true, rows: 11 })
+  expect(fake.opens[0]).toMatchObject({ focus: true, closeOnEscape: true, rows: 12 })
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
@@ -328,6 +328,8 @@ test('more than six plugins: the palette pages on both surfaces', async ($, on) 
     expect(await ui.find({ key: 'slot-a1@dir' })).toBeDefined()
     expect(await ui.find({ key: 'slot-g7@dir' })).toBe(undefined)
     expect(await ui.find({ key: 'next' })).toBeDefined()
+    // The terminal's page bar says what waits on later pages (the desktop says it inside the SVG).
+    if (surface === 'terminal') expect(await ui.find({ type: 'Text', text: /page 1\/2 · \+2 more/ })).toBeDefined()
     await ui.press({ key: 'next' })
     expect(await ui.find({ key: 'slot-g7@dir' })).toBeDefined()
     expect(await ui.find({ key: 'slot-a1@dir' })).toBe(undefined)

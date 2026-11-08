@@ -49,7 +49,7 @@ export const LIST_PAGE = 9
  * row. A request: the engine gives what the layout can spare, and the pane
  * falls back to the list when that is not enough.
  */
-export const PANE_ROWS = TEMPLATE.length + 1
+export const PANE_ROWS = TEMPLATE.length + 2 // the key row, and the page bar when there's a second page
 
 // ---------------------------------------------------------------- reading
 
