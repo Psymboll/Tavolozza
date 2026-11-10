@@ -4,7 +4,7 @@ A Claude Code mod to pick which plugins are on, per project. Choose the right co
 
 Every installed plugin adds always-on tokens to every session, even where it is useless. Tavolozza (Italian for a painter's palette) adds a `/tavo` command that opens a pane listing every installed plugin with its effective state and the settings layer that decided it (user / project / local / policy), with the always-on token total of your selection. Toggle plugins, load a preset (`lean`, `full`, `java`, your own), check the dry run, and save: Tavolozza writes only the differences to `.claude/settings.local.json` and runs `/reload-plugins` for you. It never touches `.claude/settings.json` or your user settings.
 
-At session start it behaves like asdf with `.tool-versions`: it opens in a folder without a profile (no `enabledPlugins` in `.claude/settings.local.json`), then shows a one-line summary above the prompt, and speaks up again only when installed plugins change. Claude Code opens a pane on its own only in a terminal at least 144 columns wide (110 once you have used `/tavo`); in a narrower one Tavolozza shows a one-line reminder above the prompt instead, and pressing `1` in the empty prompt (or clicking *Choose plugins*) opens the pane.
+At session start it behaves like asdf with `.tool-versions`, in one line above the prompt. In a folder without a profile (no `enabledPlugins` in `.claude/settings.local.json`) that line is a reminder: pressing `1` in the empty prompt (or clicking *Choose plugins*) opens the pane. Once a profile is saved the line is a summary of it, and Tavolozza speaks up again only when installed plugins change. The pane itself opens only when you ask for it, unless you set *When to show at session start* to `always`.
 
 Requires Claude Code 2.1.287 or later, in the terminal or the desktop Code tab.
 
@@ -35,6 +35,8 @@ The palette shows six plugins per page, one per line, with the always-on token t
 | `q` / `Esc` | close |
 
 **↑ / ↓** move between plugins and on to the actions, **Enter** toggles the focused one. The palette needs 47 columns and 11 rows; when the pane is smaller it switches to the list by itself and back again when there's room. Run `/tavo` again to re-read settings from disk.
+
+The pane's keys work only while it holds the keyboard, so it closes when the keyboard goes elsewhere (a click on the prompt, `ctrl+x tab`). Toggles you had not saved are kept: the next `/tavo` brings them back.
 
 **Quiet at startup:** `/tavo snooze` keeps Tavolozza quiet when a session starts in this folder, `/tavo snooze week` does so for 7 days, and `/tavo unsnooze` undoes either. `/tavo` itself always works.
 

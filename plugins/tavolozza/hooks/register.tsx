@@ -22,6 +22,18 @@ const model = atom({ plugin: 'tavolozza', key: 'model' } as const, EMPTY_MODEL, 
 const band = atom({ plugin: 'tavolozza', key: 'band' } as const, null)
 const started = atom({ plugin: 'tavolozza', key: 'started' } as const, false)
 
+/**
+ * The pane has held the keyboard since it was last opened. Module state: a
+ * reload forgets it, which only means that one blur doesn't close the pane.
+ */
+let hadKeys = false
+
+/**
+ * The pane closed on a blur with toggles not yet saved: the next open keeps
+ * them instead of starting over from disk. Module state, as `hadKeys`.
+ */
+let resume = false
+
 const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Promise<unknown>) => {
   const io: act.Io = {
     pluginName: $.plugin.name,
@@ -43,6 +55,7 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
     // for the whole palette (the engine grants what the layout can spare).
     openPane: async (focus, rows) =>
       (
+        (hadKeys = false),
         await $.ui.open({
           id: PANE_ID,
           title: 'Tavolozza',
@@ -59,10 +72,26 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
   // ui.render for our pane: draw from the model (read() subscribes the redraw).
   if (e.component === 'Pane') {
     const ev = e as unknown as Parameters<EngineInterface['ui']['resolve']>[0] & {
-      props: { bodyColumns: number; scroll: { bodyRows: number } }
+      props: { isFocused: boolean; bodyColumns: number; scroll: { bodyRows: number } }
+    }
+    const m = await read($, model)
+    // Close on blur: without the keys none of the pane's hotkeys work, so a pane
+    // that had them and lost them (ctrl+x tab, a click on the prompt) closes.
+    // One that never got them (opened unasked, or its focus refused) stays.
+    // The engine has no blur event; it redraws the pane when `isFocused` flips.
+    if (ev.props.isFocused) hadKeys = true
+    else if (hadKeys) {
+      hadKeys = false
+      resume = act.isDirty(m)
+      void $.ui.close({ id: PANE_ID }).then(
+        () => {
+          if (resume) $.ui.toast('Tavolozza closed · unsaved changes kept, /tavo to resume')
+        },
+        err => $.ui.log(`tavolozza: close on blur refused: ${String(err)}`, { to: 'debug' }),
+      )
     }
     // `ev.surface` is where the pane is drawn: terminal gets ASCII, desktop/vscode/mobile an SVG.
-    return renderPane($.ui.resolve(ev), await read($, model), io, ev.props.bodyColumns, ev.props.scroll.bodyRows, ev.surface)
+    return renderPane($.ui.resolve(ev), m, io, ev.props.bodyColumns, ev.props.scroll.bodyRows, ev.surface)
   }
 
   // ui.render for the band above the prompt: startup summary, drift notice, or
@@ -76,7 +105,9 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
     // The press is the person asking, so the pane is placed at any width.
     const open = async () => {
       await update($, band, () => null)
-      await act.openPane(io, true)
+      const keep = resume
+      resume = false
+      await act.openPane(io, true, undefined, keep)
     }
     return (
       <Box flexDirection="row">
@@ -100,7 +131,9 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
     if (args[0] === 'unsnooze') return { text: await act.unsnooze(io) }
     if (args.length > 0) return { text: 'Usage: /tavo · /tavo snooze [week] · /tavo unsnooze' }
     const presentation = e.presentation as { columns: number } | undefined
-    const placed = await act.openPane(io, true, presentation?.columns)
+    const keep = resume
+    resume = false
+    const placed = await act.openPane(io, true, presentation?.columns, keep)
     return { text: placed ? 'Tavolozza opened.' : 'Tavolozza is waiting for room to open.' }
   }
 

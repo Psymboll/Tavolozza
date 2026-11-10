@@ -173,9 +173,10 @@ async function suggestion(io: Io): Promise<string | null> {
 
 /**
  * Re-read everything from disk into the pane model; the pending selection
- * starts over from the effective state. Token costs fill in afterwards.
+ * starts over from the effective state, unless `keepSelection` (the pane
+ * closed on a blur with unsaved toggles). Token costs fill in afterwards.
  */
-export async function refresh(io: Io, columns?: number): Promise<void> {
+export async function refresh(io: Io, columns?: number, keepSelection = false): Promise<void> {
   await io.setModel(m => ({ ...m, status: 'loading', message: '' }))
   let loaded: Loaded
   try {
@@ -195,7 +196,7 @@ export async function refresh(io: Io, columns?: number): Promise<void> {
       ...m,
       status: 'ready',
       rows,
-      selection: Object.fromEntries(rows.map(r => [r.id, r.enabled])),
+      selection: Object.fromEntries(rows.map(r => [r.id, keepSelection && !r.locked ? (m.selection[r.id] ?? r.enabled) : r.enabled])),
       page: 0,
       mode: 'edit',
       preview: '',
@@ -209,9 +210,14 @@ export async function refresh(io: Io, columns?: number): Promise<void> {
   void fetchMissingCosts(io, loaded.installed, costs)
 }
 
+/** The pane holds toggles that are not saved yet. */
+export function isDirty(m: PaneModel): boolean {
+  return m.rows.some(r => (m.selection[r.id] ?? r.enabled) !== r.enabled)
+}
+
 /** Open (or raise) the pane. `asked`: the person ran /tavo, so it may take focus. */
-export async function openPane(io: Io, asked: boolean, columns?: number): Promise<boolean> {
-  const loading = refresh(io, columns)
+export async function openPane(io: Io, asked: boolean, columns?: number, keepSelection = false): Promise<boolean> {
+  const loading = refresh(io, columns, keepSelection)
   const placed = await io.openPane(asked, PANE_ROWS)
   await loading
   return placed
@@ -371,7 +377,9 @@ export function summary(rows: PluginRow[], selection: Record<string, boolean>, p
   return `${preset} · ${on}/${rows.length} plugins · ~${fmtTokens(totalTokens(rows, selection))} tok · /tavo`
 }
 
-/** Runs once per session at start: pane, band, drift prompt or nothing. */
+const NO_PROFILE = 'Tavolozza: no plugin profile for this folder yet · '
+
+/** Runs once per session at start: reminder, summary band, drift notice, pane ('always') or nothing. */
 export async function startup(io: Io, cwd: string): Promise<void> {
   if (options.startup === 'never') return
   const loaded = await loadState(io)
@@ -390,9 +398,19 @@ export async function startup(io: Io, cwd: string): Promise<void> {
   })
   const selection = Object.fromEntries(rows.map(r => [r.id, r.enabled]))
   if (outcome === 'quiet') return
+  // No profile: a reminder, not the pane. Its button (or /tavo) is the person
+  // asking, so the pane then opens with the keys, at any width.
+  if (outcome === 'remind') {
+    await io.setBand({ text: NO_PROFILE, open: true })
+    return
+  }
   if (outcome === 'pane') {
     const placed = await openPane(io, false)
-    if (!placed) await io.setBand({ text: 'Tavolozza: no plugin profile for this folder yet · ', open: true })
+    // Too narrow for an unasked pane: the band offers it instead.
+    if (!placed) {
+      const text = loaded.hasLocalProfile ? summary(rows, selection, await userPresets(io)).replace(/\/tavo$/, '') : NO_PROFILE
+      await io.setBand({ text, open: true })
+    }
     return
   }
   if (outcome === 'drift') {

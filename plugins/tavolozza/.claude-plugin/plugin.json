@@ -9,7 +9,7 @@
     "startup": {
       "type": "string",
       "title": "When to show at session start",
-      "description": "always: open the pane every session. first-visit: only in folders without a profile. on-change: also when installed plugins changed since the profile was saved. never: only /tavo.",
+      "description": "always: open the pane every session. first-visit: a one-line reminder in folders without a profile, a summary elsewhere. on-change: also a notice when installed plugins changed since the profile was saved. never: only /tavo.",
       "default": "on-change",
       "options": ["always", "first-visit", "on-change", "never"]
     },

@@ -158,7 +158,9 @@ describe('startup decision', () => {
   test('modes', () => {
     expect(decideStartup({ ...base, mode: 'never', hasProfile: false, record: undefined })).toBe('quiet')
     expect(decideStartup({ ...base, mode: 'always', hasProfile: true, record: { hash: 'h1' } })).toBe('pane')
-    expect(decideStartup({ ...base, mode: 'on-change', hasProfile: false, record: undefined })).toBe('pane')
+    expect(decideStartup({ ...base, mode: 'on-change', hasProfile: false, record: undefined })).toBe('remind')
+    expect(decideStartup({ ...base, mode: 'first-visit', hasProfile: false, record: undefined })).toBe('remind')
+    expect(decideStartup({ ...base, mode: 'always', hasProfile: false, record: undefined })).toBe('pane')
     expect(decideStartup({ ...base, mode: 'on-change', hasProfile: true, record: { hash: 'h1' } })).toBe('band')
     expect(decideStartup({ ...base, mode: 'on-change', hasProfile: true, record: { hash: 'h0' } })).toBe('drift')
     expect(decideStartup({ ...base, mode: 'first-visit', hasProfile: true, record: { hash: 'h0' } })).toBe('band')

@@ -42,8 +42,10 @@ export function installedHash(items: { id: string; version: string }[]): string 
 }
 
 export type StartupOutcome =
-  /** Open the full pane (no profile yet, or mode 'always'). */
+  /** Open the full pane (mode 'always' only: the person chose that). */
   | 'pane'
+  /** No profile yet: a one-line reminder above the prompt, with a button that opens the pane. */
+  | 'remind'
   /** One-line summary above the prompt. */
   | 'band'
   /** Installed plugins changed since the profile was saved. */
@@ -64,7 +66,7 @@ export function decideStartup(input: {
   if (record?.snoozeForever) return 'quiet'
   if (record?.snoozeUntil !== undefined && record.snoozeUntil > now) return 'quiet'
   if (mode === 'always') return 'pane'
-  if (!hasProfile) return 'pane'
+  if (!hasProfile) return 'remind'
   if (mode === 'on-change' && record?.hash !== undefined && record.hash !== hash) return 'drift'
   return 'band'
 }

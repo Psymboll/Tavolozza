@@ -24,11 +24,11 @@ const LIST = JSON.stringify([
   { id: 'playwright@dir', version: '7d7d', scope: 'user', enabled: true, mcpServers: { playwright: {} } },
 ])
 
-type Fake = { files: Record<string, string>; writes: { path: string; text: string }[]; commands: string[]; opens: { focus?: true }[] }
+type Fake = { files: Record<string, string>; writes: { path: string; text: string }[]; commands: string[]; opens: { focus?: true }[]; closes: number }
 
 /** Answers every `$` call the mod makes; returns what it observed. */
 function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, store: Record<string, unknown> = {}, opts: { narrow?: boolean; list?: string } = {}): Fake {
-  const fake: Fake = { files: {}, writes: [], commands: [], opens: [] }
+  const fake: Fake = { files: {}, writes: [], commands: [], opens: [], closes: 0 }
   mock.store(on, store)
   mock.clock(on)
   on('command.register', () => ({ value: { command: 'tavo' } }))
@@ -43,8 +43,12 @@ function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, stor
     const { Text } = $.ui.resolve(e)
     return <Text>engine</Text>
   })
-  on('ui.close', () => ({ value: undefined }))
+  on('ui.close', () => {
+    fake.closes++
+    return { value: undefined }
+  })
   on('ui.focus', () => ({}) as never)
+  on('ui.toast', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('session.cwd', () => ({ value: '/proj' }))
   on('process.run', (_, e) => {
@@ -210,7 +214,7 @@ const BAND = {
   plugin: 'tavolozza',
   component: 'AbovePrompt',
   requestId: 'band',
-  props: { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100, scroll: { offset: 0, bodyRows: 10 }, view: {} },
+  props: { hasSurvey: false, isCollapsed: false, isWorking: false, maxRows: 10, bodyColumns: 100, scroll: { offset: 0, bodyRows: 10 }, view: {} },
 } as const
 
 test('startup with a saved profile shows the band, first prompt clears it', async ($, on) => {
@@ -227,13 +231,14 @@ test('startup with a saved profile shows the band, first prompt clears it', asyn
   await ui.unmount()
 })
 
-test('startup in a folder without a profile opens the pane unfocused', async ($, on) => {
+test('startup in a folder without a profile shows a reminder, not the pane, at any width', async ($, on) => {
   const fake = engine(on, USER)
   await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   await ui.advance(50)
-  expect(fake.opens.length).toBe(1)
-  expect(fake.opens[0]?.focus).toBe(undefined)
+  expect(fake.opens.length).toBe(0)
+  expect(await ui.find({ type: 'Text', text: /no plugin profile/ })).toBeDefined()
+  expect(await ui.find({ key: 'open-tavo' })).toBeDefined()
   await ui.unmount()
 })
 
@@ -281,13 +286,14 @@ test('the palette fits in 11 rows, and a message does not flip it to the list', 
   await ui.unmount()
 })
 
-test('an empty settings.local.json is no profile: startup opens the pane, even after an earlier save', async ($, on) => {
+test('an empty settings.local.json is no profile: startup reminds, even after an earlier save', async ($, on) => {
   const fake = engine(on, USER, { 'folder:/proj': { hash: 'old', ids: ['caveman@dir'], savedAt: 1 } })
   fake.files['/proj/.claude/settings.local.json'] = '{}'
   await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: true })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   await ui.advance(50)
-  expect(fake.opens.length).toBe(1)
+  expect(fake.opens.length).toBe(0)
+  expect(await ui.find({ type: 'Text', text: /no plugin profile/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -302,7 +308,7 @@ test('a save matching user settings still writes enabledPlugins, so the folder c
   await ui.unmount()
 })
 
-test('when the startup pane cannot be placed, the band offers a button that opens it', async ($, on) => {
+test('the reminder\'s button opens the pane with the keys and clears the reminder', async ($, on) => {
   const fake = engine(on, USER, {}, { narrow: true })
   await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: true })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
@@ -363,5 +369,43 @@ test('more than six plugins: the list pages with a bar of its own', async ($, on
   await ui.press({ key: 'next' })
   expect(await ui.find({ key: 'row-a1@dir' })).toBe(undefined)
   expect(await ui.find({ type: 'Text', text: /page 2\/\d/ })).toBeDefined()
+  await ui.unmount()
+})
+
+const BLURRED = { ...PANE, surface: 'terminal', props: { ...PANE.props, isFocused: false } } as const
+
+test('a pane that had the keys closes when it loses them, and /tavo brings unsaved toggles back', async ($, on) => {
+  const fake = engine(on, USER)
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  await $.command.run(TAVO)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'slot-caveman@dir' })
+  await ui.unmount()
+  const blurred = await $.ui.mount(BLURRED)
+  await blurred.advance(10)
+  expect(fake.closes).toBe(1)
+  await blurred.unmount()
+  // Reopened: the toggle is still pending, so the dry run holds it.
+  await $.command.run(TAVO)
+  const again = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await again.press({ key: 'save' })
+  expect(String((await again.find({ type: 'Code' }))?.props.source)).toMatch(/"caveman@dir": false/)
+  await again.unmount()
+  // Kept once only: a clean close and reopen reads from disk again.
+  await $.command.run(TAVO)
+  const fresh = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await fresh.press({ key: 'save' })
+  expect(String((await fresh.find({ type: 'Code' }))?.props.source)).toMatch(/matches user\/project/)
+  await fresh.unmount()
+})
+
+test('a pane that never had the keys stays open', async ($, on) => {
+  const fake = engine(on, USER)
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  await $.command.run(TAVO)
+  const ui = await $.ui.mount(BLURRED)
+  await ui.advance(10)
+  expect(fake.closes).toBe(0)
+  expect(await ui.find({ key: 'slot-caveman@dir' })).toBeDefined()
   await ui.unmount()
 })
