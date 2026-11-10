@@ -6,9 +6,9 @@ import type { Band, PaneModel, PluginRow, View } from '../types'
 import { LOCAL_SETTINGS, LocalSettingsError, isAllowedTarget, localEnabledPlugins, parseLocal, previewText, renderLocal } from './lib/diff'
 import { DAY_MS, type FolderRecord, decideStartup, driftSummary, folderKey, installedHash } from './lib/drift'
 import { chooseView, TEMPLATE } from './lib/palette'
-import { applyPreset, detectPreset, matchingPreset, presetFromSelection } from './lib/presets'
+import { applyPreset, matchingPreset, presetFromSelection } from './lib/presets'
 import { type Cost, type InstalledPlugin, parseDetails, parsePluginList } from './lib/plugins'
-import { type Layers, buildRows, bug27247Warning, enabledPluginsOf, fmtTokens, totalTokens } from './lib/settings'
+import { type Layers, buildRows, enabledPluginsOf, fmtTokens, totalTokens } from './lib/settings'
 import { options } from './state'
 
 /**
@@ -24,10 +24,10 @@ export type Io = {
   exists: (path: string) => Promise<boolean>
   readFile: (path: string) => Promise<string>
   writeFile: (path: string, text: string) => Promise<void>
-  listDir: () => Promise<string[]>
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>
   now: () => Promise<number>
+  /** The session's project root (a shell `cd` does not move it). */
   cwd: () => Promise<string>
   getModel: () => Promise<PaneModel>
   setModel: (fn: (m: PaneModel) => PaneModel) => Promise<unknown>
@@ -66,7 +66,7 @@ export async function loadInstalled(io: Io): Promise<InstalledPlugin[]> {
   return parsePluginList(res.stdout)
 }
 
-/** Absolute path of the project's .claude/settings.local.json (never resolved against the process cwd). */
+/** Absolute path of the project root's .claude/settings.local.json, where Claude Code reads it. */
 export async function localPath(io: Io): Promise<string> {
   return `${(await io.cwd()).replace(/\/+$/, '')}/${LOCAL_SETTINGS}`
 }
@@ -100,7 +100,7 @@ export async function loadState(io: Io): Promise<Loaded> {
     readLocalText(io),
   ])
   let local: Record<string, boolean> | undefined
-  let warning = bug27247Warning(user)
+  let warning: string | null = null
   try {
     local = enabledPluginsOf(parseLocal(localText))
   } catch (err) {
@@ -168,14 +168,6 @@ async function setFolderRecord(io: Io, cwd: string, patch: Partial<FolderRecord>
   await io.storeSet(folderKey(cwd), { ...cur, ...patch })
 }
 
-async function suggestion(io: Io): Promise<string | null> {
-  try {
-    return detectPreset(await io.listDir())
-  } catch {
-    return null
-  }
-}
-
 // ---------------------------------------------------------------- loading the pane
 
 /**
@@ -196,7 +188,6 @@ export async function refresh(io: Io, columns?: number, keepSelection = false): 
   const rows = buildRows(loaded.installed, loaded.layers, io.pluginName, costs)
   const presets = await userPresets(io)
   const remembered = (await io.storeGet('view')) as View | undefined
-  const suggested = loaded.hasLocalProfile ? null : await suggestion(io)
   await io.setModel(m => {
     const cols = columns ?? m.columns
     return {
@@ -207,7 +198,6 @@ export async function refresh(io: Io, columns?: number, keepSelection = false): 
       page: 0,
       mode: 'edit',
       preview: '',
-      suggested,
       presets,
       warning: loaded.warning,
       columns: cols,
@@ -377,7 +367,7 @@ export async function unsnooze(io: Io): Promise<string> {
 
 // ---------------------------------------------------------------- startup
 
-/** One-line summary: `java · 5 plugins · ~6k tok · /tavo`. */
+/** One-line summary: `lean · 0/5 plugins · ~0 tok · /tavo`. */
 export function summary(rows: PluginRow[], selection: Record<string, boolean>, presets: Record<string, string[]>): string {
   const on = rows.filter(r => selection[r.id]).length
   const preset = matchingPreset(rows, selection, presets) ?? 'custom'

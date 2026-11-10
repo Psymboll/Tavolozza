@@ -46,11 +46,9 @@ export type PaneModel = {
   preview: string
   /** One info line under the board (last action's outcome). */
   message: string
-  /** Preset suggested from the folder's files (pom.xml → java). */
-  suggested: string | null
   /** The person's own presets: name → plugin names that are on. */
   presets: Record<string, string[]>
-  /** A setup problem worth showing (bug #27247, unreadable local file). */
+  /** A setup problem worth showing (an unreadable local file). */
   warning: string | null
   /** Terminal width the pane was last opened at, for the palette/list choice. */
   columns: number

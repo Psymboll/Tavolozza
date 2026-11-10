@@ -83,14 +83,3 @@ export function fmtTokens(n: number | null): string {
   const k = n / 1000
   return (k < 10 ? k.toFixed(1).replace(/\.0$/, '') : String(Math.round(k))) + 'k'
 }
-
-/**
- * Workaround check for anthropics/claude-code#27247: a local `enabledPlugins`
- * is ignored unless the key exists in the user settings file.
- */
-export function bug27247Warning(userSettings: unknown): string | null {
-  if (userSettings !== null && typeof userSettings === 'object' && 'enabledPlugins' in userSettings) {
-    return null
-  }
-  return 'Add "enabledPlugins": {} to ~/.claude/settings.json, or the local choice may be ignored (#27247).'
-}

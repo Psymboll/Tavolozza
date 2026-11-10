@@ -8,8 +8,8 @@ import { decideStartup, driftSummary, installedHash } from '../hooks/lib/drift'
 import { chooseView, fit, flowRows, PALETTE_WIDTH, paletteRows, textRows, pageSlots, renderPaletteText, segmentLine, slotLabel, TEMPLATE } from '../hooks/lib/palette'
 import { crossPage } from '../hooks/lib/paging'
 import { parseDetails, parsePluginList } from '../hooks/lib/plugins'
-import { applyPreset, detectPreset, matchingPreset } from '../hooks/lib/presets'
-import { buildRows, bug27247Warning, enabledPluginsOf, fmtTokens, resolve, totalTokens } from '../hooks/lib/settings'
+import { applyPreset, matchingPreset } from '../hooks/lib/presets'
+import { buildRows, enabledPluginsOf, fmtTokens, resolve, totalTokens } from '../hooks/lib/settings'
 
 const LIST_JSON = JSON.stringify([
   { id: 'caveman@dir', version: '1.1.2', scope: 'user', enabled: true },
@@ -92,10 +92,6 @@ describe('settings precedence', () => {
     expect(fmtTokens(null)).toBe('…')
     expect(totalTokens([row('a@m'), row('b@m', { tokens: 50 })], { 'a@m': true, 'b@m': false })).toBe(100)
   })
-  test('#27247 warning only when user settings lack the key', () => {
-    expect(bug27247Warning({ enabledPlugins: {} })).toBe(null)
-    expect(bug27247Warning({})).not.toBe(null)
-  })
 })
 
 describe('local diff', () => {
@@ -137,16 +133,14 @@ describe('local diff', () => {
 
 describe('presets', () => {
   const rows = [row('jdtls-lsp@m'), row('playwright@m'), row('caveman@m', { locked: true, enabled: true })]
-  test('lean / full / stack / user', () => {
+  test('lean / full / user', () => {
     expect(applyPreset('lean', rows, {})).toEqual({ 'jdtls-lsp@m': false, 'playwright@m': false, 'caveman@m': true })
     expect(applyPreset('full', rows, {})).toEqual({ 'jdtls-lsp@m': true, 'playwright@m': true, 'caveman@m': true })
-    expect(applyPreset('java', rows, {})).toEqual({ 'jdtls-lsp@m': true, 'playwright@m': false, 'caveman@m': true })
+    expect(applyPreset('java', rows, {})).toBe(null)
     expect(applyPreset('mine', rows, { mine: ['playwright'] })?.['playwright@m']).toBe(true)
     expect(applyPreset('nope', rows, {})).toBe(null)
   })
-  test('detection and matching', () => {
-    expect(detectPreset(['README.md', 'pom.xml'])).toBe('java')
-    expect(detectPreset(['README.md'])).toBe(null)
+  test('matching', () => {
     const two = [row('a@m'), row('b@m')]
     expect(matchingPreset(two, { 'a@m': false, 'b@m': false }, {})).toBe('lean')
     expect(matchingPreset(two, { 'a@m': true, 'b@m': false }, {})).toBe(null)

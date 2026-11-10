@@ -1,0 +1,8 @@
+# Editor and local Claude Code settings
+.idea/
+.claude/
+
+# Working notes, not shipped
+docs/
+Tavolozza — handoff.md
+Screenshot*.png

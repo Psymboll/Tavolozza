@@ -283,12 +283,10 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
           <Button
             key={`preset-${name}`}
             plain
-            dimColor={name !== m.suggested}
             {...(i === 0 ? { autoFocus: true as const } : {})}
             onPress={() => act.choosePreset(io, name)}
           >
             {name}
-            {name === m.suggested ? ' (suggested)' : ''}
           </Button>
         ))}
         <Button key="cancel-preset" hotkey="c" plain dimColor onPress={() => act.cancelPreset(io)}>Cancel</Button>

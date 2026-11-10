@@ -18,7 +18,7 @@ type AnyEvent = Record<string, unknown>
 
 // Session state (contract: types/index.d.ts). Bump the model's shape tag when
 // PaneModel changes, so a value stored by older code reads as EMPTY_MODEL.
-const model = atom({ plugin: 'tavolozza', key: 'model' } as const, EMPTY_MODEL, { shape: 'model-1' })
+const model = atom({ plugin: 'tavolozza', key: 'model' } as const, EMPTY_MODEL, { shape: 'model-2' })
 const band = atom({ plugin: 'tavolozza', key: 'band' } as const, null)
 const started = atom({ plugin: 'tavolozza', key: 'started' } as const, false)
 
@@ -42,11 +42,12 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
     exists: path => $.fs.exists(path),
     readFile: path => $.fs.read(path),
     writeFile: (path, text) => $.fs.write(path, text),
-    listDir: async () => (await $.fs.list(await $.session.cwd())).map(entry => entry.name),
     storeGet: key => $.store.get(key),
     storeSet: (key, value) => $.store.set(key, value),
     now: () => $.clock.now(),
-    cwd: () => $.session.cwd(),
+    // The project root, not the shell's directory: a `cd` during the session must
+    // not move where the profile is read and written.
+    cwd: () => $.session.root(),
     getModel: () => read($, model),
     setModel: fn => update($, model, fn),
     setBand: value => update($, band, () => value),

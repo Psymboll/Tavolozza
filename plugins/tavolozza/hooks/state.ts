@@ -15,7 +15,6 @@ export const EMPTY_MODEL: PaneModel = {
   mode: 'edit',
   preview: '',
   message: '',
-  suggested: null,
   presets: {},
   warning: null,
   columns: 80,

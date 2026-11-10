@@ -2,7 +2,7 @@
 
 A Claude Code mod to pick which plugins are on, per project. Choose the right colours for your project.
 
-Every installed plugin adds always-on tokens to every session, even where it is useless. Tavolozza (Italian for a painter's palette) adds a `/tavo` command that opens a pane listing every installed plugin with its effective state and the settings layer that decided it (user / project / local / policy), with the always-on token total of your selection. Toggle plugins, load a preset (`lean`, `full`, `java`, your own), check the dry run, and save: Tavolozza writes only the differences to `.claude/settings.local.json` and runs `/reload-plugins` for you. It never touches `.claude/settings.json` or your user settings.
+Every installed plugin adds always-on tokens to every session, even where it is useless. Tavolozza (Italian for a painter's palette) adds a `/tavo` command that opens a pane listing every installed plugin with its effective state and the settings layer that decided it (user / project / local / policy), with the always-on token total of your selection. Toggle plugins, load a preset (`lean`, `full`, your own), check the dry run, and save: Tavolozza writes only the differences to `.claude/settings.local.json` and runs `/reload-plugins` for you. It never touches `.claude/settings.json` or your user settings.
 
 At session start it behaves like asdf with `.tool-versions`, in one line above the prompt. In a folder without a profile (no `enabledPlugins` in `.claude/settings.local.json`) that line is a reminder: pressing `1` in the empty prompt (or clicking *Choose plugins*) opens the pane. Once a profile is saved the line is a summary of it, and Tavolozza speaks up again only when installed plugins change. The pane itself opens only when you ask for it, unless you set *When to show at session start* to `always`.
 
@@ -29,7 +29,7 @@ The palette shows six plugins per page, one per line, with the always-on token t
 | `1`–`6` (palette) / `1`–`9` (list) | toggle a plugin |
 | `s` then `w` / `c` | save: show the dry run, then write or cancel |
 | `a` | save the current selection as a preset |
-| `p` | load a preset (`lean`, `full`, a suggested stack preset, your own) |
+| `p` | load a preset (`lean`, `full`, your own) |
 | `l` | switch between palette and list |
 | `b` / `n` | previous / next page (shown only when there is a second page) |
 | `q` / `Esc` | close |
@@ -44,7 +44,15 @@ The pane's keys work only while it holds the keyboard, so it closes when the key
 
 **Options** (`/config`): *When to show at session start* (`always`, `first-visit`, `on-change` (default), `never`) and *Palette view*.
 
-**Known Claude Code bug** ([#27247](https://github.com/anthropics/claude-code/issues/27247)): a local `enabledPlugins` is ignored unless the key exists in `~/.claude/settings.json`. Tavolozza warns you if it is missing; add `"enabledPlugins": {}` there.
+## What it touches
+
+- **Writes one file:** `.claude/settings.local.json` in the project, and in it only the `enabledPlugins` key. Every other key is kept, and nothing is written until you confirm the dry run.
+- **Reads:** your user, project and managed settings (to show which layer decided each plugin), never changing them.
+- **Runs:** `claude plugin list --json` and `claude plugin details <id>` to list plugins and estimate their always-on tokens, and `/reload-plugins` after a save.
+- **Remembers:** token estimates, your presets, your palette/list choice and a per-folder record (when a profile was saved, snoozes) in Claude Code's own per-plugin store on your machine, never in the repo.
+- **Network:** none.
+
+The token total is an estimate: the tool schemas of a plugin's MCP servers are not counted.
 
 ## Develop
 

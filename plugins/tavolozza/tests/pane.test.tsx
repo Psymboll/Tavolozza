@@ -50,7 +50,9 @@ function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, stor
   on('ui.focus', () => ({}) as never)
   on('ui.toast', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('session.cwd', () => ({ value: '/proj' }))
+  // The shell has cd'ed into a subfolder; the profile still belongs to the project root.
+  on('session.cwd', () => ({ value: '/proj/sub' }))
+  on('session.root', () => ({ value: '/proj' }))
   on('process.run', (_, e) => {
     const argv = e.argv.join(' ')
     if (argv === 'claude plugin list --json') return { value: { exitCode: 0, stdout: opts.list ?? LIST, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
@@ -62,7 +64,6 @@ function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, stor
   on('settings.read', (_, e) => ({ value: (e.source === 'user' ? user : {}) as never }))
   on('fs.exists', (_, e) => ({ value: e.path in fake.files }))
   on('fs.read', (_, e) => ({ value: fake.files[e.path] ?? '' }))
-  on('fs.list', () => ({ value: [] }))
   on('fs.write', (_, e) => {
     fake.writes.push({ path: e.path, text: e.text })
     fake.files[e.path] = e.text
@@ -160,12 +161,12 @@ test('existing local keys survive, cancel writes nothing', async ($, on) => {
   await ui.unmount()
 })
 
-test('list view, presets and the #27247 warning', async ($, on) => {
-  engine(on, { model: 'opus' }) // user settings without enabledPlugins
+test('list view and presets', async ($, on) => {
+  engine(on, { model: 'opus' }) // user settings without enabledPlugins: nothing to warn about
   await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
   await $.command.run(TAVO)
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
-  expect(await ui.find({ type: 'Text', text: /#27247/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /settings\.json/ })).toBe(undefined)
 
   await ui.press({ key: 'view' })
   expect(await ui.find({ type: 'Text', text: /always-on tokens/ })).toBeDefined()
