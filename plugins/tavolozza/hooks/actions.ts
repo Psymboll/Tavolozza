@@ -32,8 +32,8 @@ export type Io = {
   getModel: () => Promise<PaneModel>
   setModel: (fn: (m: PaneModel) => PaneModel) => Promise<unknown>
   setBand: (band: Band) => Promise<unknown>
-  /** Open the pane; `rows` is the body height it asks for. */
-  openPane: (focus: boolean, rows: number) => Promise<boolean>
+  /** Open the pane; `rows` is the body height it asks for inline, `columns` the width when docked. */
+  openPane: (focus: boolean, rows: number, columns: number) => Promise<boolean>
   closePane: () => Promise<void>
   /** Move the pane's focus ring onto one of its elements, by key. */
   focus: (key: string) => Promise<unknown>
@@ -50,6 +50,13 @@ export const LIST_PAGE = 9
  * falls back to the list when that is not enough.
  */
 export const PANE_ROWS = TEMPLATE.length + 2 // the key row, and the page bar when there's a second page
+
+/**
+ * Body columns the pane asks for when docked beside a fullscreen transcript:
+ * the key row on one line (`s: Save · … · l: Palette · q: Close`), which is
+ * wider than the palette. A request, as the rows are.
+ */
+export const PANE_COLUMNS = 68
 
 // ---------------------------------------------------------------- reading
 
@@ -218,7 +225,7 @@ export function isDirty(m: PaneModel): boolean {
 /** Open (or raise) the pane. `asked`: the person ran /tavo, so it may take focus. */
 export async function openPane(io: Io, asked: boolean, columns?: number, keepSelection = false): Promise<boolean> {
   const loading = refresh(io, columns, keepSelection)
-  const placed = await io.openPane(asked, PANE_ROWS)
+  const placed = await io.openPane(asked, PANE_ROWS, PANE_COLUMNS)
   await loading
   return placed
 }

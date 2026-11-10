@@ -13,7 +13,7 @@ const PANE = {
     title: 'Tavolozza',
     isFocused: true,
     bodyColumns: 100,
-    placement: 'dock',
+    placement: 'inline',
     scroll: { offset: 0, bodyRows: 40 },
     view: {},
   },
@@ -86,7 +86,7 @@ test('toggle a plugin, dry-run, write only the diff, reload', async ($, on) => {
   const opened = await $.command.run(TAVO)
   expect(opened.text).toBe('Tavolozza opened.')
   // /tavo opens a dialog-style pane (arrows walk the buttons) asking for room for the palette.
-  expect(fake.opens[0]).toMatchObject({ focus: true, closeOnEscape: true, rows: 12 })
+  expect(fake.opens[0]).toMatchObject({ focus: true, closeOnEscape: true, rows: 12, columns: 68 })
 
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
@@ -408,4 +408,20 @@ test('a pane that never had the keys stays open', async ($, on) => {
   expect(fake.closes).toBe(0)
   expect(await ui.find({ key: 'slot-caveman@dir' })).toBeDefined()
   await ui.unmount()
+})
+
+test('docked beside a fullscreen transcript, the key row stands a blank row under the board', async ($, on) => {
+  engine(on, USER)
+  await $.session.start({ cwd: '/proj', surface: 'terminal', isInteractive: false })
+  await $.command.run(TAVO)
+  const rowsOf = async (placement: 'dock' | 'inline') => {
+    const ui = await $.ui.mount({ ...PANE, surface: 'terminal', props: { ...PANE.props, placement } })
+    expect(await ui.find({ key: 'slot-caveman@dir' })).toBeDefined()
+    expect(await ui.find({ key: 'save' })).toBeDefined()
+    const blank = await ui.find({ type: 'Text', text: /^ $/ })
+    await ui.unmount()
+    return blank
+  }
+  expect(await rowsOf('dock')).toBeDefined()
+  expect(await rowsOf('inline')).toBe(undefined)
 })

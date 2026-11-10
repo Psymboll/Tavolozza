@@ -60,9 +60,10 @@ export const paneLayout = {
 /**
  * Draws the pane from the model. `els` is the surface's element table
  * ($.ui.resolve(e)), `columns` the pane body's width; every button calls an
- * action through `io`.
+ * action through `io`. `docked`: the pane stands beside a fullscreen
+ * transcript at full height, so the key row gets a blank row above it.
  */
-export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns: number, bodyRows: number, surface: string) {
+export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns: number, bodyRows: number, surface: string, docked = false) {
   const { Box, Text, Button, Code } = els
   const Input = (els as unknown as Record<string, unknown>).Input as ElementTable<'terminal'>['Input'] | undefined
   // Desktop, VS Code and mobile draw `Svg`; the terminal doesn't. There the
@@ -93,7 +94,7 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
   // not counted: a "Not saved." must never flip the palette to the list.
   // `s: Save · a: Save as preset · …`; paging has a bar of its own under the board.
   const keyRowWidth = KEYS.reduce((w, [, , l]) => w + 3 + (l || 'Palette').length, 0) + (KEYS.length - 1) * SEP.length
-  const chrome = textRows(keyRowWidth, columns) + (m.warning ? textRows(m.warning.length, columns) : 0)
+  const chrome = textRows(keyRowWidth, columns) + (m.warning ? textRows(m.warning.length, columns) : 0) + (docked ? 1 : 0)
 
   // ---- palette only when it fits whole, in width and in height; else the list
   // (one more row for the page bar when there is a second page)
@@ -348,6 +349,7 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
         <Text>Dry run: .claude/settings.local.json will hold</Text>
         <Code source={m.preview} language="json" />
         {m.warning !== null && <Text color="warning">{m.warning}</Text>}
+        {docked && <Text> </Text>}
         <Box flexDirection="row">
           <Button key="write" hotkey="w" plain onPress={() => act.writeSave(io)}>Write</Button>
           <Text dimColor>{SEP}</Text>
@@ -361,6 +363,7 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
     <Box flexDirection="column">
       {board}
       {m.warning !== null && <Text color="warning">{m.warning}</Text>}
+      {docked && <Text> </Text>}
       {keyRow}
     </Box>
   )

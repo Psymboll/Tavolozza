@@ -53,13 +53,14 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
     // Asked for (/tavo): a dialog-style pane that takes the keys, so Tab and the
     // arrows walk its buttons and Esc closes it. `rows` asks for enough height
     // for the whole palette (the engine grants what the layout can spare).
-    openPane: async (focus, rows) =>
+    openPane: async (focus, rows, columns) =>
       (
         (hadKeys = false),
         await $.ui.open({
           id: PANE_ID,
           title: 'Tavolozza',
           rows,
+          columns,
           ...(focus ? { focus: true as const, closeOnEscape: true as const } : {}),
         })
       ).isPlaced,
@@ -72,7 +73,7 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
   // ui.render for our pane: draw from the model (read() subscribes the redraw).
   if (e.component === 'Pane') {
     const ev = e as unknown as Parameters<EngineInterface['ui']['resolve']>[0] & {
-      props: { isFocused: boolean; bodyColumns: number; scroll: { bodyRows: number } }
+      props: { isFocused: boolean; placement: 'dock' | 'inline'; bodyColumns: number; scroll: { bodyRows: number } }
     }
     const m = await read($, model)
     // Close on blur: without the keys none of the pane's hotkeys work, so a pane
@@ -91,7 +92,7 @@ const main = async ($: EngineInterface, e: AnyEvent, next: (e: AnyEvent) => Prom
       )
     }
     // `ev.surface` is where the pane is drawn: terminal gets ASCII, desktop/vscode/mobile an SVG.
-    return renderPane($.ui.resolve(ev), m, io, ev.props.bodyColumns, ev.props.scroll.bodyRows, ev.surface)
+    return renderPane($.ui.resolve(ev), m, io, ev.props.bodyColumns, ev.props.scroll.bodyRows, ev.surface, ev.props.placement === 'dock')
   }
 
   // ui.render for the band above the prompt: startup summary, drift notice, or
