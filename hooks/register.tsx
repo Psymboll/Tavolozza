@@ -151,10 +151,9 @@ export const register: Register = (on, opts) => {
     }
     if (args[0] === 'unsnooze') return { text: await act.unsnooze(io) }
     if (args.length > 0) return { text: 'Usage: /tavo · /tavo snooze [week] · /tavo unsnooze' }
-    const presentation = (e as { presentation?: { columns: number } }).presentation
     const keep = resume
     resume = false
-    const placed = await act.openPane(io, true, presentation?.columns, keep)
+    const placed = await act.openPane(io, true, e.presentation?.columns, keep)
     return { text: placed ? 'Tavolozza opened.' : 'Tavolozza is waiting for room to open.' }
   })
 

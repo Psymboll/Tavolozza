@@ -1,6 +1,6 @@
 {
   "name": "tavolozza",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Pick which plugins are on for this project, from inside the session: /tavo writes the choice to .claude/settings.local.json.",
   "author": { "name": "Psymboll" },
   "license": "MIT",
