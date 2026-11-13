@@ -55,9 +55,12 @@ Run `/tavo`. The palette shows six plugins per page with the always-on token tot
 
 - **Writes one file:** `.claude/settings.local.json` in the project root, and in it only the `enabledPlugins` key. Only the plugins whose state differs from your user and project settings are written. Every other key in the file is kept, a file that is not valid JSON is left alone, and nothing is written until you confirm the dry run.
 - **Reads:** your user, project, flag and managed settings, to show which layer decided each plugin. It never changes them.
-- **Runs:** `claude plugin list --json` and `claude plugin details <id>`, to list plugins and estimate their always-on tokens, and `/reload-plugins` after a save.
+- **Runs one program:** the `claude` CLI already on your machine, with exactly two commands: `claude plugin list --json` to list the installed plugins, and `claude plugin details <id>` to estimate a plugin's always-on tokens. Nothing Tavolozza reads (settings, the conversation) is passed to it, and it runs no other program.
+- **Runs one slash command:** `/reload-plugins`, after a save you confirmed, so the new selection takes effect.
+- **Conversation:** not read. A hook on prompt submit clears Tavolozza's line above the prompt when you send your first message; it does not read or change the prompt.
 - **Remembers:** token estimates, your presets, your palette or list choice, and a per-folder record (when a profile was saved, snoozes). These live in Claude Code's own per-plugin store on your machine, never in the repository.
-- **Network:** none. Tavolozza sends nothing anywhere.
+- **Network:** none. Tavolozza sends nothing anywhere. The one web address in its source, `http://www.w3.org/2000/svg`, is the SVG namespace of the desktop picture and is never contacted.
+- **Credentials:** none read. "Tokens" here always means context tokens, the size a plugin adds to a session, never an access token.
 
 The token total is an estimate: the tool schemas of a plugin's MCP servers are not counted. Tavolozza leaves itself out of its own list.
 

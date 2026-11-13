@@ -77,7 +77,7 @@ export function totalTokens(rows: PluginRow[], selection: Record<string, boolean
 }
 
 /** 139 → "139", 1234 → "1.2k", 12345 → "12k". */
-export function fmtTokens(n: number | null): string {
+export function fmtCount(n: number | null): string {
   if (n === null) return '…'
   if (n < 1000) return String(n)
   const k = n / 1000

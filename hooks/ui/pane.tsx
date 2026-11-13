@@ -8,7 +8,7 @@ import type { PaneModel, PluginRow } from '../../types'
 import * as act from '../actions'
 import { fit, PALETTE_WIDTH, pageCount, pageSlots, paletteRows, renderPaletteSvg, SEGMENTS, SLOT_WIDTH, SLOTS_PER_PAGE, textRows, TOTAL_WIDTH } from '../lib/palette'
 import { presetNames } from '../lib/presets'
-import { fmtTokens, totalTokens } from '../lib/settings'
+import { fmtCount, totalTokens } from '../lib/settings'
 
 /**
  * One paint per slot, in slot order: only the ● of a plugin that is on is
@@ -85,7 +85,7 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
 
   const rows = m.rows
   const on = rows.filter(r => m.selection[r.id]).length
-  const total = `${fmtTokens(totalTokens(rows, m.selection))} tok · ${on}/${rows.length}`
+  const total = `${fmtCount(totalTokens(rows, m.selection))} tok · ${on}/${rows.length}`
   const changed = (r: PluginRow) => (m.selection[r.id] ?? r.enabled) !== r.enabled
 
   // ---- how many rows everything except the board takes, at this width.

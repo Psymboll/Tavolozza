@@ -3,12 +3,12 @@
 // the pane's buttons call. Pure logic lives in ./lib.
 
 import type { Band, PaneModel, PluginRow, View } from '../types'
-import { LOCAL_SETTINGS, LocalSettingsError, isAllowedTarget, localEnabledPlugins, parseLocal, previewText, renderLocal } from './lib/diff'
+import { LocalSettingsError, localEnabledPlugins, parseLocal, previewText, renderLocal } from './lib/diff'
 import { DAY_MS, type FolderRecord, decideStartup, driftSummary, folderKey, installedHash } from './lib/drift'
 import { chooseView, TEMPLATE } from './lib/palette'
 import { applyPreset, matchingPreset, presetFromSelection } from './lib/presets'
 import { type Cost, type InstalledPlugin, parseDetails, parsePluginList } from './lib/plugins'
-import { type Layers, buildRows, enabledPluginsOf, fmtTokens, totalTokens } from './lib/settings'
+import { type Layers, buildRows, enabledPluginsOf, fmtCount, totalTokens } from './lib/settings'
 import { options } from './state'
 
 /**
@@ -19,11 +19,15 @@ import { options } from './state'
  */
 export type Io = {
   pluginName: string
-  run: (argv: string[], timeoutMs?: number) => Promise<{ exitCode: number; stdout: string; stderr: string }>
+  /** `claude plugin list --json`. */
+  listPlugins: () => Promise<{ exitCode: number; stdout: string; stderr: string }>
+  /** `claude plugin details <id>`. */
+  pluginDetails: (id: string) => Promise<{ exitCode: number; stdout: string; stderr: string }>
   settings: (source: 'user' | 'project' | 'flag' | 'policy') => Promise<unknown>
-  exists: (path: string) => Promise<boolean>
-  readFile: (path: string) => Promise<string>
-  writeFile: (path: string, text: string) => Promise<void>
+  /** Raw text of the project root's .claude/settings.local.json, null when missing. */
+  readLocal: () => Promise<string | null>
+  /** Replace the text of the project root's .claude/settings.local.json. */
+  writeLocal: (text: string) => Promise<void>
   storeGet: (key: string) => Promise<unknown>
   storeSet: (key: string, value: unknown) => Promise<void>
   now: () => Promise<number>
@@ -38,7 +42,8 @@ export type Io = {
   /** Move the pane's focus ring onto one of its elements, by key. */
   focus: (key: string) => Promise<unknown>
   toast: (text: string) => void
-  runCommand: (command: string) => Promise<unknown>
+  /** Run /reload-plugins. */
+  reloadPlugins: () => Promise<unknown>
 }
 
 /** Most rows per page in list view (hotkeys 1–9); fewer when the pane is short. */
@@ -61,21 +66,14 @@ export const PANE_COLUMNS = 68
 // ---------------------------------------------------------------- reading
 
 export async function loadInstalled(io: Io): Promise<InstalledPlugin[]> {
-  const res = await io.run(['claude', 'plugin', 'list', '--json'], 30_000)
+  const res = await io.listPlugins()
   if (res.exitCode !== 0) throw new Error(`claude plugin list failed: ${res.stderr.trim() || res.exitCode}`)
   return parsePluginList(res.stdout)
 }
 
-/** Absolute path of the project root's .claude/settings.local.json, where Claude Code reads it. */
-export async function localPath(io: Io): Promise<string> {
-  return `${(await io.cwd()).replace(/\/+$/, '')}/${LOCAL_SETTINGS}`
-}
-
 /** Raw text of .claude/settings.local.json, null when missing. */
 export async function readLocalText(io: Io): Promise<string | null> {
-  const path = await localPath(io)
-  if (!(await io.exists(path))) return null
-  return io.readFile(path)
+  return io.readLocal()
 }
 
 export type Loaded = {
@@ -139,7 +137,7 @@ export async function fetchMissingCosts(io: Io, installed: InstalledPlugin[], ha
     missing.map(async p => {
       let cost: Cost = { tokens: null, hasMcp: p.hasMcp }
       try {
-        const res = await io.run(['claude', 'plugin', 'details', p.id], 60_000)
+        const res = await io.pluginDetails(p.id)
         if (res.exitCode === 0) {
           cost = parseDetails(res.stdout)
           await io.storeSet(costKey(p), cost)
@@ -274,9 +272,7 @@ export async function writeSave(io: Io): Promise<void> {
     const text = await readLocalText(io)
     const current = enabledPluginsOf(parseLocal(text))
     const next = localEnabledPlugins(m.rows, m.selection, current)
-    const path = await localPath(io)
-    if (!isAllowedTarget(path)) throw new Error('refusing to write outside .claude/settings.local.json')
-    await io.writeFile(path, renderLocal(text, next))
+    await io.writeLocal(renderLocal(text, next))
     await setFolderRecord(io, cwd, {
       hash: installedHash(m.rows),
       ids: m.rows.map(r => r.id),
@@ -298,7 +294,7 @@ export async function writeSave(io: Io): Promise<void> {
 export async function reloadPlugins(io: Io): Promise<void> {
   try {
     // Queued until the session is idle; this may reload Tavolozza itself.
-    void io.runCommand('reload-plugins').then(
+    void io.reloadPlugins().then(
       () => io.setModel(cur => ({ ...cur, message: 'Saved and reloaded. Run /context to see the effect.' })),
       () => io.setModel(cur => ({ ...cur, message: 'Saved. Run /reload-plugins to apply.' })),
     )
@@ -373,7 +369,7 @@ export async function unsnooze(io: Io): Promise<string> {
 export function summary(rows: PluginRow[], selection: Record<string, boolean>, presets: Record<string, string[]>): string {
   const on = rows.filter(r => selection[r.id]).length
   const preset = matchingPreset(rows, selection, presets) ?? 'custom'
-  return `${preset} · ${on}/${rows.length} plugins · ~${fmtTokens(totalTokens(rows, selection))} tok · /tavo`
+  return `${preset} · ${on}/${rows.length} plugins · ~${fmtCount(totalTokens(rows, selection))} tok · /tavo`
 }
 
 const NO_PROFILE = 'Tavolozza: no plugin profile for this folder yet · '

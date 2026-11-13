@@ -3,13 +3,13 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import type { PluginRow } from '../types'
-import { isAllowedTarget, localEnabledPlugins, parseLocal, previewText, renderLocal } from '../hooks/lib/diff'
+import { localEnabledPlugins, parseLocal, previewText, renderLocal } from '../hooks/lib/diff'
 import { decideStartup, driftSummary, installedHash } from '../hooks/lib/drift'
 import { chooseView, fit, flowRows, PALETTE_WIDTH, paletteRows, textRows, pageSlots, renderPaletteText, segmentLine, slotLabel, TEMPLATE } from '../hooks/lib/palette'
 import { crossPage } from '../hooks/lib/paging'
 import { parseDetails, parsePluginList } from '../hooks/lib/plugins'
 import { applyPreset, matchingPreset } from '../hooks/lib/presets'
-import { buildRows, enabledPluginsOf, fmtTokens, resolve, totalTokens } from '../hooks/lib/settings'
+import { buildRows, enabledPluginsOf, fmtCount, resolve, totalTokens } from '../hooks/lib/settings'
 
 const LIST_JSON = JSON.stringify([
   { id: 'caveman@dir', version: '1.1.2', scope: 'user', enabled: true },
@@ -85,11 +85,11 @@ describe('settings precedence', () => {
     expect(enabledPluginsOf(null)).toBe(undefined)
   })
   test('tokens', () => {
-    expect(fmtTokens(139)).toBe('139')
-    expect(fmtTokens(1234)).toBe('1.2k')
-    expect(fmtTokens(2000)).toBe('2k')
-    expect(fmtTokens(12345)).toBe('12k')
-    expect(fmtTokens(null)).toBe('…')
+    expect(fmtCount(139)).toBe('139')
+    expect(fmtCount(1234)).toBe('1.2k')
+    expect(fmtCount(2000)).toBe('2k')
+    expect(fmtCount(12345)).toBe('12k')
+    expect(fmtCount(null)).toBe('…')
     expect(totalTokens([row('a@m'), row('b@m', { tokens: 50 })], { 'a@m': true, 'b@m': false })).toBe(100)
   })
 })
@@ -118,12 +118,6 @@ describe('local diff', () => {
     expect(() => parseLocal('{ nope')).toThrow()
     expect(() => parseLocal('[1]')).toThrow()
     expect(parseLocal('  ')).toEqual({})
-  })
-  test('write target guard', () => {
-    expect(isAllowedTarget('.claude/settings.local.json')).toBe(true)
-    expect(isAllowedTarget('/p/.claude/settings.local.json')).toBe(true)
-    expect(isAllowedTarget('.claude/settings.json')).toBe(false)
-    expect(isAllowedTarget('/home/u/.claude/settings.json')).toBe(false)
   })
   test('preview', () => {
     expect(previewText({})).toMatch(/"enabledPlugins": \{\}/)

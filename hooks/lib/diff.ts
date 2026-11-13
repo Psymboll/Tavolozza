@@ -4,13 +4,8 @@
 
 import type { PluginRow } from '../../types'
 
-/** The one file Tavolozza ever writes, relative to the project folder. */
+/** The one file Tavolozza ever writes, relative to the project folder (the write itself: register.tsx, `writeLocal`). */
 export const LOCAL_SETTINGS = '.claude/settings.local.json'
-
-/** Guard used right before writing: the path must be the local settings file. */
-export function isAllowedTarget(path: string): boolean {
-  return path === LOCAL_SETTINGS || path.endsWith('/' + LOCAL_SETTINGS)
-}
 
 /**
  * The new local `enabledPlugins` map.
