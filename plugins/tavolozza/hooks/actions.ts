@@ -318,6 +318,8 @@ export async function startNamingPreset(io: Io): Promise<void> {
 }
 
 export async function savePreset(io: Io, rawName: string): Promise<void> {
+  // An empty name is the person going back, not a mistake.
+  if (rawName.trim() === '') return cancelPreset(io)
   const name = rawName.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-')
   if (!name || name === 'lean' || name === 'full') {
     await io.setModel(cur => ({ ...cur, mode: 'edit', message: 'Preset not saved: pick another name.' }))

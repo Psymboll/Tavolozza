@@ -62,11 +62,13 @@ function engine(on: Parameters<TestBody>[1], user: Record<string, unknown>, stor
     return { value: { exitCode: 0, stdout: 'Always-on:   ~0 tok\nMCP servers (1)', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
   })
   on('settings.read', (_, e) => ({ value: (e.source === 'user' ? user : {}) as never }))
-  on('fs.exists', (_, e) => ({ value: e.path in fake.files }))
-  on('fs.read', (_, e) => ({ value: fake.files[e.path] ?? '' }))
+  // On Windows the engine hands paths over as `C:\proj\…`; the fake keeps them POSIX.
+  const posix = (path: string) => path.replace(/^[A-Za-z]:/, '').replace(/\\/g, '/')
+  on('fs.exists', (_, e) => ({ value: posix(e.path) in fake.files }))
+  on('fs.read', (_, e) => ({ value: fake.files[posix(e.path)] ?? '' }))
   on('fs.write', (_, e) => {
-    fake.writes.push({ path: e.path, text: e.text })
-    fake.files[e.path] = e.text
+    fake.writes.push({ path: posix(e.path), text: e.text })
+    fake.files[posix(e.path)] = e.text
     return { value: undefined }
   })
   on('command.run', (_, e) => {
@@ -174,6 +176,16 @@ test('list view and presets', async ($, on) => {
   await ui.press({ key: 'load-preset' })
   await ui.press({ key: 'preset-lean' })
   expect(await ui.find({ type: 'Text', text: /Preset lean applied/ })).toBeDefined()
+
+  // The name field has a way back: Cancel, or Enter on an empty field.
+  await ui.press({ key: 'add-preset' })
+  await ui.press({ key: 'cancel-name' })
+  expect(await ui.find({ key: 'preset-name' })).toBe(undefined)
+  expect(await ui.find({ key: 'save' })).toBeDefined()
+  await ui.press({ key: 'add-preset' })
+  await ui.input({ key: 'preset-name', text: '  ' })
+  expect(await ui.find({ key: 'save' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Preset .* saved|not saved/ })).toBe(undefined)
 
   // Save the current selection as a named preset; it joins the preset row.
   await ui.press({ key: 'add-preset' })

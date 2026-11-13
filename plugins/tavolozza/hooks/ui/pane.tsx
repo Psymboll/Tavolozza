@@ -266,14 +266,19 @@ export function renderPane(els: ElementTable, m: PaneModel, io: act.Io, columns:
   // ---- the key row; the preset picker and the name field replace it while open
   let keyRow
   if (m.mode === 'name-preset' && Input) {
+    // The way back: the Cancel button (↓ or Tab from the field, or a click), or
+    // Enter on an empty field. No hotkey: a letter would be typed into the name.
     keyRow = (
-      <Input
-        key="preset-name"
-        label="Preset name"
-        placeholder="e.g. backend"
-        autoFocus
-        onSubmit={(value: string) => act.savePreset(io, value)}
-      />
+      <Box flexDirection="column">
+        <Input
+          key="preset-name"
+          label="Preset name"
+          placeholder="e.g. backend · empty to go back"
+          autoFocus
+          onSubmit={(value: string) => act.savePreset(io, value)}
+        />
+        <Button key="cancel-name" plain dimColor onPress={() => act.cancelPreset(io)}>Cancel</Button>
+      </Box>
     )
   } else if (m.mode === 'load-preset') {
     keyRow = (
