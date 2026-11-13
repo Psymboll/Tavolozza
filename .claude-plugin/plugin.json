@@ -1,11 +1,14 @@
 {
   "name": "tavolozza",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Pick which plugins are on for this project, from inside the session: /tavo writes the choice to .claude/settings.local.json.",
   "author": { "name": "Psymboll" },
   "license": "MIT",
   "homepage": "https://github.com/Psymboll/Tavolozza",
   "repository": "https://github.com/Psymboll/Tavolozza",
+  "supportUrl": "https://github.com/Psymboll/Tavolozza/issues",
+  "documentationUrl": "https://github.com/Psymboll/Tavolozza#readme",
+  "privacyPolicyUrl": "https://github.com/Psymboll/Tavolozza/blob/main/PRIVACY.md",
   "keywords": ["plugins", "settings", "tokens", "context", "mod"],
   "types": "./types/index.d.ts",
   "userConfig": {
