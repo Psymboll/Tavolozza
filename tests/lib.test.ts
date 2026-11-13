@@ -1,4 +1,4 @@
-// Unit tests for the pure helpers in hooks/lib. Run: claude plugin test plugins/tavolozza
+// Unit tests for the pure helpers in hooks/lib. Run: claude plugin test .
 
 import { describe, expect, test } from 'claude-code/testing'
 

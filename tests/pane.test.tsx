@@ -1,6 +1,6 @@
 // Integration test: /tavo → pane → toggle → Save → dry-run → Write, with
 // every engine call the mod makes answered by the hooks below (they stand for
-// Claude Code). Run: claude plugin test plugins/tavolozza
+// Claude Code). Run: claude plugin test .
 
 import { expect, mock, test } from 'claude-code/testing'
 import type { TestBody } from 'claude-code/testing'

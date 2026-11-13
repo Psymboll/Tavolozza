@@ -7,7 +7,7 @@
   "plugins": [
     {
       "name": "tavolozza",
-      "source": "./plugins/tavolozza",
+      "source": "./",
       "description": "Pick which plugins are on for this project, from inside the session (/tavo)."
     }
   ]
